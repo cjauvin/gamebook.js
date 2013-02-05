@@ -37,7 +37,7 @@ $(document).ready(function($) {
     },
 
     // uses jsonp to avoid XSS issues
-    //gamebook_url = '//projectaon.org/staff/christian/fotw.php?callback=?',
+    //gamebook_url = '//projectaon.org/staff/christian/gamebook.js/fotw.php?callback=?',
     gamebook_url = 'fotw.json',
     debug = false,
     data,
@@ -441,7 +441,7 @@ $(document).ready(function($) {
             break;
 
         default:
-            print('[Special section is not implemented]', 'blue');
+            print('Error: special section {0} is not implemented.'.f(curr_section), 'blue');
         }
     },
 

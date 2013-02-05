@@ -13,7 +13,7 @@ one of the predefined options, yielding a gameplay more akin to
 
 [1]: http://en.wikipedia.org/wiki/Interactive_fiction
 
-[**Try it!**](http://cjauvin.github.com/gamebook.js)
+[**Try it!**](http://projectaon.org/staff/christian/gamebook.js)
 
 How it works
 ------------
