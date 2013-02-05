@@ -433,8 +433,18 @@ $(document).ready(function($) {
                     if (r >= opt.range[0] && r <= opt.range[1]) {
                         print('You have picked {0}'.f(r), 'blue');
                         print('({0})'.f(opt.text));
-                        curr_section = opt.section;
-                        doCurrentSection();
+                        setConfirmMode({
+                            prompt: '[[;#000;#ff0][continue y/n]]',
+                            yes: function() {
+                                curr_section = opt.section;
+                                doCurrentSection();
+                            },
+                            no: function() {
+                                // remove all options other than the picked one
+                                data.sections[curr_section].options = [opt];
+                                term.set_prompt(cmd_prompt);
+                            }
+                        });
                     }
                 });
             });
@@ -483,8 +493,18 @@ $(document).ready(function($) {
                     if (r >= opt.range[0] && r <= opt.range[1]) {
                         print('You have picked {0}'.f(r), 'blue');
                         print('({0})'.f(opt.text));
-                        curr_section = opt.section;
-                        doCurrentSection();
+                        setConfirmMode({
+                            prompt: '[[;#000;#ff0][continue y/n]]',
+                            yes: function() {
+                                curr_section = opt.section;
+                                doCurrentSection();
+                            },
+                            no: function() {
+                                // remove all options other than the picked one
+                                data.sections[curr_section].options = [opt];
+                                term.set_prompt(cmd_prompt);
+                            }
+                        });
                     }
                 });
             });
@@ -585,7 +605,7 @@ $(document).ready(function($) {
                 callback: function(i) {
                     var disc = data.setup.disciplines[i],
                     ws;
-                    if ($.inArray(disc, action_chart.kai_disciplines) === -1) {
+                    if (!isInArray(disc, action_chart.kai_disciplines)) {
                         action_chart.kai_disciplines.push(disc);
                         ws = '';
                         if (disc === 'Weaponskill') {
@@ -1028,7 +1048,7 @@ $(document).ready(function($) {
                     action_chart.endurance.current = 8;
                     action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Hunting'];
                     action_chart.weaponskill = 'Sword';
-                    //action_chart.weapons = [{name: 'Sword'}, {name: 'Short Sword'}];
+                    action_chart.weapons = [{name: 'Sword'}, {name: 'Short Sword'}];
                     action_chart.backpack_items.push(data.setup.equipment[5]); // healing potion
                     action_chart.special_items.push(data.setup.equipment[3]); // chainmail
                     action_chart.gold = 10;
