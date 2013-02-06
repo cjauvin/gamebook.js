@@ -947,12 +947,7 @@ $(document).ready(function($) {
         greetings: '',
         history: false,
         tabcompletion: true,
-        keypress: function(event, term) {
-            if (sequence_mode.is_active || confirm_mode.is_active ||
-                choice_mode.is_active || press_key_mode.is_active) {
-                return false;
-            }
-        },
+
         keydown: function(event, term) {
             if (sequence_mode.is_active) {
                 if (sequence_mode.seq_idx < sequence_mode.seq.length) {
@@ -1030,6 +1025,14 @@ $(document).ready(function($) {
             }
 
         },
+
+        keypress: function(event, term) {
+            if (sequence_mode.is_active || confirm_mode.is_active ||
+                choice_mode.is_active || press_key_mode.is_active) {
+                return false;
+            }
+        },
+
         onInit: function(_term) {
             term = _term;
             $.getJSON(gamebook_url, function(_data) {
