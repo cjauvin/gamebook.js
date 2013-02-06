@@ -948,12 +948,12 @@ $(document).ready(function($) {
         history: false,
         tabcompletion: true,
         keypress: function(event, term) {
-            if (sequence_mode.is_active || confirm_mode.is_active || choice_mode.is_active) {
+            if (sequence_mode.is_active || confirm_mode.is_active ||
+                choice_mode.is_active || press_key_mode.is_active) {
                 return false;
             }
         },
         keydown: function(event, term) {
-
             if (sequence_mode.is_active) {
                 if (sequence_mode.seq_idx < sequence_mode.seq.length) {
                     var seq_part = sequence_mode.seq[sequence_mode.seq_idx];
