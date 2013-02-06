@@ -122,7 +122,7 @@ $(document).ready(function($) {
     ],
 
     colors = {
-        'red': '#f00', 'blue': '#00f', 'yellow': '#ff0'
+        'red': '#f00', 'blue': '#0f60ff', 'yellow': '#ff0'
     },
 
     print = function(str, color_name) {
@@ -667,9 +667,9 @@ $(document).ready(function($) {
         }
     },
 
-    matchInventoryItem = function(input_str) {
+    matchInventoryItem = function(input_str, ac_sections) {
         var closest = {lev: Number.POSITIVE_INFINITY, item: null};
-        $.each(['weapons', 'backpack_items', 'special_items'], function(i, ac_section) {
+        $.each(ac_sections || ['weapons', 'backpack_items', 'special_items'], function(i, ac_section) {
             $.each(action_chart[ac_section], function(j, item) {
                 var item_name_words = item.name.split(/[^A-Za-z0-9']+/).concat(item.name);
                 $.each(item_name_words, function(k, inw) {
@@ -758,12 +758,12 @@ $(document).ready(function($) {
                 });
                 return;
             }
-            print('If you wanted to drop an inventory item, not sure which one.', 'blue');
+            print('(If you wanted to drop an inventory item, not sure which one.)', 'blue');
         }
 
         m = command.match(/^use (.+)/);
         if (m) {
-            item = matchInventoryItem(m[1].toLowerCase());
+            item = matchInventoryItem(m[1].toLowerCase(), ['backpack_items', 'special_items']);
             if (item) {
                 print('Use {0}?'.f(item.name), 'blue');
                 setConfirmMode({
@@ -781,7 +781,7 @@ $(document).ready(function($) {
                 });
                 return;
             }
-            print('If you wanted to use an inventory item, not sure which one.', 'blue');
+            print('(If you wanted to use an inventory item, not sure which one.)', 'blue');
         }
 
         // try direct section #
