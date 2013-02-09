@@ -279,8 +279,8 @@ $(document).ready(function($) {
     },
 
     satisfiesOptionRequirements = function(opt) {
+        var ok = true;
         if (opt.hasOwnProperty('requirements')) {
-            var ok = true;
             $.each(opt.requirements, function(i, req) {
                 if (typeof req.value === 'string') {
                     if (!isInArray(req.value, action_chart[req.type])) {
@@ -294,13 +294,8 @@ $(document).ready(function($) {
                     }
                 }
             });
-            if (!ok) {
-                print('This option is not possible.', 'blue');
-                term.set_prompt(cmd_prompt);
-                return false;
-            }
         }
-        return true;
+        return ok;
     },
 
     doCombat = function(ennemy, combat_ratio, round) {
@@ -460,7 +455,8 @@ $(document).ready(function($) {
             print('Error: section {0} is not implemented.'.f(curr_section), 'blue');
             return;
         }
-        var sect = data.sections[curr_section];
+        var sect = data.sections[curr_section],
+        auto_found = false;
         if (!isStillAlive()) { return; }
         if (!sect.hasOwnProperty('visited')) {
             printSectionNumber(curr_section);
@@ -520,7 +516,7 @@ $(document).ready(function($) {
         } else if (sect.options.length === 0) {
             if (curr_section === '197') {
                 print('Sorry, the game is not currently implemented past this section..', 'blue');
-            } else{
+            } else { // death
                 print(stars, 'yellow');
             }
             setPressKeyMode(function() { // restart
@@ -528,7 +524,23 @@ $(document).ready(function($) {
                 doSetupSequence();
             });
         } else {
-            term.set_prompt(cmd_prompt);
+            $.each(sect.options, function(i, opt) {
+                if (opt.hasOwnProperty('auto') && satisfiesOptionRequirements(opt)) {
+                    print(opt.text);
+                    setConfirmMode({
+                        yes: function() {
+                            curr_section = opt.section;
+                            doCurrentSection();
+                        }
+                    });
+                    auto_found = true;
+                    return false;
+                }
+            });
+            // accept user input
+            if (!auto_found) {
+                term.set_prompt(cmd_prompt);
+            }
         }
     },
 
@@ -696,7 +708,7 @@ $(document).ready(function($) {
         var opt_match_results = [], // list of [n_opt_matches, opt idx]'s, one for every option, to be sorted
         input_tokens = command.split(/[^A-Za-z0-9']+/), // every nonalpha except "'"
         section_input = command.match(/\d+/),
-        section_input_found = false,
+        valid_section_input_found = false,
         matched_opt_idx, altern_opt_idx,
         sect = $.extend(true, {}, data.sections[curr_section]), // deep clone because we might modify it
         m, item, opt;
@@ -791,12 +803,13 @@ $(document).ready(function($) {
                     if (satisfiesOptionRequirements(opt)) {
                         curr_section = opt.section;
                         doCurrentSection();
+                        valid_section_input_found = true;
                     }
-                    section_input_found = true;
                 }
             });
-            if (!section_input_found) {
-                print('You cannot go to section {0} from here.'.f(section_input[0]), 'blue');
+            if (!valid_section_input_found) {
+                print('This is not possible.', 'blue');
+                term.set_prompt(cmd_prompt);
             }
             return;
         }
@@ -898,6 +911,9 @@ $(document).ready(function($) {
                     if (satisfiesOptionRequirements(opt)) {
                         curr_section = opt.section;
                         doCurrentSection();
+                    } else {
+                        print('This is not possible.', 'blue');
+                        term.set_prompt(cmd_prompt);
                     }
                 },
                 no: function() {
@@ -1049,7 +1065,7 @@ $(document).ready(function($) {
                     action_chart.combat_skill = 16;
                     action_chart.endurance.initial = 10;
                     action_chart.endurance.current = 8;
-                    action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Hunting'];
+                    action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Mind Over Matter'];
                     action_chart.weaponskill = 'Sword';
                     action_chart.weapons = [{name: 'Sword'}, {name: 'Short Sword'}];
                     action_chart.backpack_items.push(data.setup.equipment[5]); // healing potion
