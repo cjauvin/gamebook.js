@@ -298,32 +298,33 @@ $(document).ready(function($) {
         return ok;
     },
 
-    doCombat = function(ennemy, combat_ratio, round) {
-        var doCombatRound = function() {
+    doCombat = function(enemy, combat_ratio, round) {
+        var sect = data.sections[curr_section],
+        doCombatRound = function() {
             var r = Math.floor(Math.random() * 10), // 0--9 inc
             s, pts, alive;
             $.each(combat_results_ranges, function(i, range) {
                 if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
             });
             pts = combat_results_table[r][s];
-            if (pts[0] === 'k') { pts[0] = ennemy.endurance; }
+            if (pts[0] === 'k') { pts[0] = enemy.endurance; }
             if (pts[1] === 'k') { pts[1] = action_chart.endurance.current; }
-            ennemy.endurance -= Math.min(pts[0], ennemy.endurance);
+            enemy.endurance -= Math.min(pts[0], enemy.endurance);
             action_chart.endurance.current -= Math.min(pts[1], action_chart.endurance.current);
-            print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(ennemy.name, pts[0], ennemy.endurance, pts[1], action_chart.endurance.current), 'red');
+            print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], action_chart.endurance.current), 'red');
             alive = isStillAlive();
-            if (ennemy.endurance <= 0 && alive) {
-                print('{0} has died.'.f(ennemy.name), 'red');
-                term.echo('({0})\n\n'.f(ennemy.win.text));
+            if (enemy.endurance <= 0 && alive) {
+                print('{0} has died.'.f(enemy.name), 'red');
+                term.echo('({0})\n\n'.f(sect.combat.win.text));
                 setPressKeyMode(function() {
-                    curr_section = ennemy.win.section;
+                    curr_section = sect.combat.win.section;
                     doCurrentSection();
                 });
                 return false;
             }
             return alive;
         };
-        if (ennemy.hasOwnProperty('evasion') && round >= ennemy.evasion.n_rounds) {
+        if (sect.combat.hasOwnProperty('evasion') && round >= sect.combat.evasion.n_rounds) {
             setConfirmMode({
                 prompt: '[[;#000;#ff0][evade y/n]]',
                 yes: function() {
@@ -334,24 +335,24 @@ $(document).ready(function($) {
                     });
                     pts = combat_results_table[r][s];
                     action_chart.endurance.current -= Math.min(pts[0], action_chart.endurance.current);
-                    ennemy.endurance -= pts[1];
+                    enemy.endurance -= pts[1];
                     print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], action_chart.endurance.current), 'red');
-                    term.echo('({0})\n\n'.f(ennemy.evasion.text));
+                    term.echo('({0})\n\n'.f(sect.combat.evasion.text));
                     setPressKeyMode(function() {
-                        curr_section = ennemy.evasion.section;
+                        curr_section = sect.combat.evasion.section;
                         doCurrentSection();
                     });
                 },
                 no: function() {
                     if (doCombatRound()) {
-                        doCombat(ennemy, combat_ratio, round + 1);
+                        doCombat(enemy, combat_ratio, round + 1);
                     }
                 }
             });
         } else {
             setPressKeyMode(function() {
                 if (doCombatRound()) {
-                    doCombat(ennemy, combat_ratio, round + 1);
+                    doCombat(enemy, combat_ratio, round + 1);
                 }
             });
         }
@@ -462,7 +463,7 @@ $(document).ready(function($) {
             printSectionNumber(curr_section);
             term.echo(sect.text);
             sect.visited = true;
-            if (isInArray('Healing', action_chart.kai_disciplines) && !sect.hasOwnProperty('ennemies')) {
+            if (isInArray('Healing', action_chart.kai_disciplines) && !sect.hasOwnProperty('enemies')) {
                 if (action_chart.endurance.current < calculateEndurance().val) {
                     updateEndurance(1);
                     print('Healing..', 'blue');
@@ -474,11 +475,11 @@ $(document).ready(function($) {
             doSpecialSection();
             return;
         }
-        if (sect.hasOwnProperty('ennemies')) {
-            $.each(sect.ennemies, function(i, ennemy) {
-                var combat_ratio = calculateCombatSkill().val - ennemy.combat_skill;
+        if (sect.hasOwnProperty('combat')) {
+            $.each(sect.combat.enemies, function(i, enemy) {
+                var combat_ratio = calculateCombatSkill().val - enemy.combat_skill;
                 print('Your Combat Ratio is {0}'.f(combat_ratio), 'red');
-                doCombat(ennemy, combat_ratio, 0);
+                doCombat(enemy, combat_ratio, 0);
             });
             return;
         }
@@ -1063,8 +1064,8 @@ $(document).ready(function($) {
                 data.intro_sequence[data.intro_sequence.length-1] += '\n\n' + stars;
                 if (debug) {
                     action_chart.combat_skill = 16;
-                    action_chart.endurance.initial = 10;
-                    action_chart.endurance.current = 8;
+                    action_chart.endurance.initial = 20;
+                    action_chart.endurance.current = 18;
                     action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Mind Over Matter'];
                     action_chart.weaponskill = 'Sword';
                     action_chart.weapons = [{name: 'Sword'}, {name: 'Short Sword'}];
