@@ -1007,6 +1007,7 @@ $(document).ready(function($) {
                 } else {
                     sequence_mode.is_active = false;
                     term.clear();
+                    term.consumeSingleKeypress(); // FF keypress/keydown bug
                     doCurrentSection();
                 }
                 return false;
@@ -1016,6 +1017,7 @@ $(document).ready(function($) {
                 term.set_prompt(cmd_prompt);
                 press_key_mode.is_active = false;
                 press_key_mode.callback();
+                term.consumeSingleKeypress(); // FF keypress/keydown bug
                 return false;
             }
 
@@ -1023,10 +1025,12 @@ $(document).ready(function($) {
                 if (event.which === 89) {
                     confirm_mode.is_active = false;
                     confirm_mode.yes_callback();
+                    term.consumeSingleKeypress(); // FF keypress/keydown bug
                 }
                 if (event.which === 78) {
                     confirm_mode.is_active = false;
                     confirm_mode.no_callback();
+                    term.consumeSingleKeypress(); // FF keypress/keydown bug
                 }
                 return false;
             }
@@ -1037,6 +1041,7 @@ $(document).ready(function($) {
                     event.which <= choice_mode.range[1]) {
                     choice_mode.is_active = false;
                     choice_mode.callback(event.which - choice_mode.range[0]);
+                    term.consumeSingleKeypress(); // FF keypress/keydown bug
                 }
                 return false;
             }
