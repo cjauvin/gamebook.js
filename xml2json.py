@@ -56,6 +56,14 @@ for sect_elem in root.findall('.//section[@id="sect%s"]' % sect_id):
         is_random_pick = True
         for opt in options:
             opt['range'] = [int(s) for s in re.search('(\d)-(\d)', opt['text']).groups()]
+    elif len(options) > 1:
+        for opt in options:
+            words = []
+            for w in re.split('\W+', opt['text']):
+                w = w.lower()
+                if len(w) > 2 or 
+words.append(w)
+            opt['words'] = words
     if enemies:
         combat['enemies'] = enemies
         for opt in reversed(options):
