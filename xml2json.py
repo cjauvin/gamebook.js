@@ -1,4 +1,5 @@
 import re, textwrap, json, sys
+from collections import OrderedDict
 from Queue import *
 from pprint import pprint
 from lxml import etree
@@ -23,7 +24,7 @@ def processPara(para):
     return textwrap.wrap(para, 80)
 
 
-sections = {}
+sections = OrderedDict()
 custom = json.load(open('fotw_custom.json'))
 #custom = json.load(open('fotw.json'))
 parser = etree.XMLParser(resolve_entities=False)
@@ -130,12 +131,30 @@ q = Queue()
 visited = set()
 q.put('1')
 sects = set()
+to_set = []
 while not q.empty():
     sect_id = q.get()
-    print sect_id
+    #print sect_id
+    to_set.append(sect_id)
     sects.add(sect_id)
     if sect_id == '197': continue
     for opt in sections[sect_id]['options']:
         if opt['section'] not in visited:
             q.put(opt['section'])
             visited.add(opt['section'])
+
+result = OrderedDict()
+setup = OrderedDict()
+for f in ['sequence', 'disciplines', 'weapons', 'equipment']:
+    setup[f] = custom['setup'][f]
+custom['setup'] = setup
+for f in ['prompt', 'intro_sequence', 'setup', 'synonyms']:
+    result[f] = custom[f]
+
+sects = OrderedDict()
+for sid in to_set:
+    sects[sid] = sections[sid]
+
+result['sections'] = sects
+
+json.dump(result, open('fotw_generated.json', 'w'), indent=4)
