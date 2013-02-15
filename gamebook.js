@@ -43,6 +43,7 @@ $(document).ready(function($) {
     data,
     synonyms = {},
     curr_section = '1',
+    autocompletion_enabled = true,
     // sequence parts
     sequence_mode = {is_active: false,
                      prompt: '[[;#000;#ff0][press any key]]',
@@ -70,7 +71,9 @@ $(document).ready(function($) {
         "'drop'/'use' : one of your inventory items\n" +
         "'continue'   : if the current section has only one option, go to the next\n" +
         "'123'        : go to section 123 (if possible from current section)\n" +
-        "'hint'       : reveal the set of options for the current section\n" +
+        "'hint'       : show a random word from the options of the current section\n" +
+        "'options'    : reveal the set of options for the current section\n" +
+        "'auto'       : toggle word autocompletion on/off\n" +
         "'again'      : print the current section\n" +
         "'restart'    : restart the game (including setup)\n" +
         "'clear'      : clear the screen\n",
@@ -296,6 +299,27 @@ $(document).ready(function($) {
             });
         }
         return ok;
+    },
+
+    setAutocompletionWords = function(sect) {
+        var autocomplete_words = [];
+        if (autocompletion_enabled) {
+            term.set_prompt(cmd_prompt);
+            $.each(sect.options, function(i, opt) {
+                $.each(opt.words, function(j, word) {
+                    $.each((synonyms[word] || []).concat(word), function(k, syn) {
+                        if ($.isArray(syn)) {
+                            $.each(syn, function(l, synw) {
+                                autocomplete_words.push(synw);
+                            });
+                        } else {
+                            autocomplete_words.push(syn);
+                        }
+                    });
+                });
+            });
+        }
+        term.set_autocomplete_words(autocomplete_words);
     },
 
     doCombat = function(enemy, combat_ratio, round) {
@@ -540,7 +564,7 @@ $(document).ready(function($) {
             });
             // accept user input
             if (!auto_found) {
-                term.set_prompt(cmd_prompt);
+                setAutocompletionWords(sect);
             }
         }
     },
@@ -742,10 +766,30 @@ $(document).ready(function($) {
             return;
         }
 
-        if (command.match(/^hints?$/)) {
+        if (command === 'options') {
             $.each(sect.options, function(i, opt) {
                 print(opt.text);
             });
+            return;
+        }
+
+        if (command === 'hint') {
+            var words = [];
+            $.each(sect.options, function(i, opt) {
+                $.each(opt.words, function(j, word) {
+                    if (!$.isArray(word)) {
+                        words.push(word);
+                    }
+                });
+            });
+            print(words[Math.floor(Math.random() * words.length)], 'blue');
+            return;
+        }
+
+        if (command === 'auto') {
+            autocompletion_enabled = !autocompletion_enabled;
+            setAutocompletionWords(sect);
+            print('Word autocompletion is now {0}.'.f(autocompletion_enabled ? 'on' : 'off'), 'blue');
             return;
         }
 
@@ -837,8 +881,8 @@ $(document).ready(function($) {
             opt_syn_matches,
             v_syns;
             $.each(opt.words || [], function(j, w) {
-                if (!$.isArray(w)) { w = [w]; }
-                w = $.map(w, function(v) { return v.toLowerCase();} );
+                if (!$.isArray(w)) { w = [w]; } // if w is not compound, make it one
+                w = $.map(w, function(v) { return stemmer(v.toLowerCase()); });
                 // match structure: maps to each option word an array of bools: w -> [0, .. 0]
                 // if w is a single word "a": "a" -> [0] (size 1 array)
                 // if w is a compound word ["a", "b"], it's first coerced into "a,b",
@@ -853,7 +897,7 @@ $(document).ready(function($) {
                 });
                 $.each(cartesianProduct(v_syns), function(k, w_syns) {
                     w_syns = $.map(w_syns, function(u) { return u; }); // flatten in case a syn is itself a compound
-                    w_syns = $.map(w_syns, function(s) { return s.toLowerCase(); });
+                    //w_syns = $.map(w_syns, function(s) { return s.toLowerCase(); });
                     opt_syn_matches[w_syns] = zeros(w_syns.length);
                 });
                 //console.log(opt_syn_matches);
@@ -864,7 +908,7 @@ $(document).ready(function($) {
                     $.each(Object.keys(opt_syn_matches), function(l, s) {
                         // split compound word into single words..
                         $.each(s.split(','), function(m, t) {
-                            if (levenshteinDist(w, t) <= 1) {
+                            if (levenshteinDist(stemmer(w), t) <= 1) {
                                 // and update the match bool at the proper position in
                                 // the match array (0 for single word)
                                 opt_word_matches[k][s][m] = 1;
@@ -963,7 +1007,7 @@ $(document).ready(function($) {
         prompt: '',
         greetings: '',
         history: false,
-        tabcompletion: true,
+        tabcompletion: false,
 
         keydown: function(event, term) {
             if (sequence_mode.is_active) {
@@ -1061,7 +1105,18 @@ $(document).ready(function($) {
                 data = _data;
                 cmd_prompt = '[[;#ff0;#000]' + data.prompt + '] ';
                 // build synonym map: w -> [w1, w2, w3, ..]
+                var stemmed_synonyms = [];
+                // (1) stem them
                 $.each(data.synonyms, function(i, synset) {
+                    // watch for jQuery.map autoflatten behavior, see:
+                    // http://stackoverflow.com/questions/703355/is-there-a-jquery-map-utility-that-doesnt-automically-flatten
+                    var stemmed_synset = $.map(synset, function(v) { return $.isArray(v) ?
+                                                                     [$.map(v, function(u) { return stemmer(u.toLowerCase()); })] :
+                                                                     stemmer(v.toLowerCase()); });
+                    stemmed_synonyms.push(stemmed_synset);
+                });
+                // (2) organize them in a word -> synset map
+                $.each(stemmed_synonyms, function(i, synset) {
                     $.each(synset, function(j, w) {
                         synonyms[w] = $.grep(synset, function(v) { return v !== w; });
                     });
