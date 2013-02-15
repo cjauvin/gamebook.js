@@ -23,10 +23,8 @@ def processPara(para):
     para = re.sub('</?quote/?>', "\"", para)
     return textwrap.wrap(para, 80)
 
-
 sections = OrderedDict()
 custom = json.load(open('fotw_custom.json'))
-#custom = json.load(open('fotw.json'))
 parser = etree.XMLParser(resolve_entities=False)
 tree = etree.parse('fotw.xml', parser=parser)
 root = tree.getroot()
@@ -101,7 +99,6 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
     if is_random_pick: section['is_random_pick'] = True
     if is_special: section['is_special'] = True
     #print json.dumps(section, indent=4)
-
     #print '-------------------------------------'
 
     # merge custom content
@@ -121,40 +118,30 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
                     if 'auto' in custom_opt:
                         opt['auto'] = True
                     break
-
     sections[sect_id] = section
-
-    #print json.dumps(section, indent=4)
-#print
 
 q = Queue()
 visited = set()
 q.put('1')
-sects = set()
+section_od = OrderedDict()
 to_set = []
 while not q.empty():
     sect_id = q.get()
     #print sect_id
     to_set.append(sect_id)
-    sects.add(sect_id)
+    section_od[sect_id] = sections[sect_id]
     if sect_id == '197': continue
     for opt in sections[sect_id]['options']:
         if opt['section'] not in visited:
             q.put(opt['section'])
             visited.add(opt['section'])
 
-result = OrderedDict()
-setup = OrderedDict()
+result_od = OrderedDict()
+setup_od = OrderedDict()
 for f in ['sequence', 'disciplines', 'weapons', 'equipment']:
-    setup[f] = custom['setup'][f]
-custom['setup'] = setup
+    setup_od[f] = custom['setup'][f]
+custom['setup'] = setup_od
 for f in ['prompt', 'intro_sequence', 'setup', 'synonyms']:
-    result[f] = custom[f]
-
-sects = OrderedDict()
-for sid in to_set:
-    sects[sid] = sections[sid]
-
-result['sections'] = sects
-
-json.dump(result, open('fotw_generated.json', 'w'), indent=4)
+    result_od[f] = custom[f]
+result_od['sections'] = section_od
+json.dump(result_od, open('fotw_generated.json', 'w'), indent=4)
