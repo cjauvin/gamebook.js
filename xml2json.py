@@ -1,5 +1,6 @@
 import re, textwrap, json
 from lxml import etree
+from nltk.corpus import stopwords
 
 
 def processPara(para):
@@ -14,13 +15,16 @@ def processPara(para):
     para = re.sub('</?quote/?>', "\"", para)
     return textwrap.wrap(para, 80)
 
+stopwords = set(stopwords.words('english'))
+stopwords.add('turn')
+
 parser = etree.XMLParser(resolve_entities=False)
 tree = etree.parse('fotw.xml', parser=parser)
 root = tree.getroot()
 
 sections = {}
 
-sect_id = '240'
+sect_id = '3'
 
 #for section in root.findall('.//section[@class="numbered"]')[1:]:
 for sect_elem in root.findall('.//section[@id="sect%s"]' % sect_id):
@@ -61,8 +65,8 @@ for sect_elem in root.findall('.//section[@id="sect%s"]' % sect_id):
             words = []
             for w in re.split('\W+', opt['text']):
                 w = w.lower()
-                if len(w) > 2 or 
-words.append(w)
+                if len(w) < 3 or w in stopwords or re.match('\d+', w): continue
+                words.append(w)
             opt['words'] = words
     if enemies:
         combat['enemies'] = enemies
