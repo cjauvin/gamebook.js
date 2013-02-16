@@ -3,13 +3,8 @@ from collections import OrderedDict
 from Queue import *
 from pprint import pprint
 from lxml import etree
+from nltk.corpus import stopwords
 
-if True:
-    from nltk.corpus import stopwords
-    stopwords = set(stopwords.words('english'))
-else:
-    stopwords = set(['you'])
-stopwords.add('turn')
 
 def processPara(para):
     para = re.sub('</?p/?>', '', para)
@@ -30,8 +25,12 @@ parser = etree.XMLParser(resolve_entities=False)
 tree = etree.parse('fotw.xml', parser=parser)
 root = tree.getroot()
 
+stopwords = set(stopwords.words('english'))
+for w in ['turn', 'wish']:
+    stopwords.add(w)
+
 for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
-#for sect_elem in root.findall('.//section[@id="sect%s"]' % 160):
+#for sect_elem in root.findall('.//section[@id="sect%s"]' % 5):
     sect_id = sect_elem.find('.//title').text
     sect_paras = []
     options = []
@@ -40,6 +39,9 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
     rnt_found = False
     ac_found = False
     is_special = False
+    undead_found = False
+    immune_to_mindblast_found = False
+    illustration_found = False
     for item in sect_elem.find('data'):
         s = etree.tostring(item).strip()
         if item.tag == 'p':
@@ -53,6 +55,10 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             if '<a idref=\"action\">Action Chart</a>' in s:
                 ac_found = True
                 s = s.replace('<a idref=\"action\">Action Chart</a>', 'Action Chart')
+            if 'undead' in s.lower():
+                undead_found = True
+            if 'immune' in s.lower() and 'mindblast' in s.lower():
+                immune_to_mindblast_found = True
             sect_paras.append(processPara(s))
         elif item.tag == 'combat':
             e = {'name': item.find('.//enemy').text,
@@ -63,6 +69,9 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
         elif item.tag == 'choice':
             opt_sect_id = re.search('idref="sect(\d+)"', s).group(1)
             options.append({'section': opt_sect_id, 'text': '\n'.join(processPara(s))})
+        else:
+            if item.tag == 'illustration':
+                illustration_found = True
     sect_text = '\n\n'.join(['\n'.join(p) for p in sect_paras])
     is_random_pick = False
     if rnt_found and re.search('\d-\d', options[0]['text']):
@@ -83,29 +92,45 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             opt['words'] = words
     if enemies:
         combat['enemies'] = enemies
-        for opt in reversed(options):
+        for i, opt in enumerate(options):
             if 'win' in opt['text']:
-                combat['win'] = opt
-                #options.remove(opt)
+                combat['win'] = {'option': i}
             elif 'evade' in opt['text']:
-                combat['evasion'] = opt
-                #options.remove(opt)
+                combat['evasion'] = {'option': i}
                 if re.search('at any time|stage', opt['text']):
                     combat['evasion']['n_rounds'] = 0
                 elif 'after two rounds' in opt['text']:
                     combat['evasion']['n_rounds'] = 2
 
     section = {'text': sect_text, 'options': options}
-    if combat: section['combat'] = combat
+    if combat:
+        if undead_found:
+            assert len(combat['enemies']) == 1
+            combat['enemies'][0]['is_undead'] = True
+        if immune_to_mindblast_found:
+            assert len(combat['enemies']) == 1
+            combat['enemies'][0]['immune'] = "Mindblast"
+        if 'win' not in combat and len(options) == 1:
+            combat['win'] = {'option': 0}
+        section['combat'] = combat
+
     if is_random_pick: section['is_random_pick'] = True
     if is_special: section['is_special'] = True
 
     # merge custom content
     if sect_id in custom['sections']:
-        if 'alternate_options' in custom['sections'][sect_id]:
+        cust_sect = custom['sections'][sect_id]
+        if 'alternate_options' in cust_sect:
             section['alternate_options'] = True
-        if 'is_special' in custom['sections'][sect_id]:
-            section['is_special'] = True
+        if 'is_special' in cust_sect:
+            if cust_sect['is_special']:
+                section['is_special'] = True
+            else:
+                section.pop('is_special', None)
+        if 'combat' in cust_sect:
+            section['combat'] = cust_sect['combat']
+        if 'items' in cust_sect:
+            section['items'] = cust_sect['items']
         for custom_opt in custom['sections'][sect_id].get('options', []):
             # no key to match here, so we got to match using opt.section (thus the need to search)
             for opt in section['options']:
@@ -128,8 +153,12 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
         report.append('rnt_found')
     if is_special:
         report.append('is_special')
-    if report:
+#    if illustration_found:
+#        report.append('illustration')
+    if report and sect_id not in custom['sections']: #True:
         print '%s: %s' % (sect_id, ', '.join(report))
+
+#exit()
 
 q = Queue()
 visited = set()
@@ -138,7 +167,6 @@ section_od = OrderedDict()
 to_set = []
 while not q.empty():
     sect_id = q.get()
-    #print sect_id
     to_set.append(sect_id)
     section_od[sect_id] = sections[sect_id]
 #    if sect_id == '197': continue
