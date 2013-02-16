@@ -38,8 +38,8 @@ $(document).ready(function($) {
 
     // uses jsonp to avoid XSS issues
     //gamebook_url = '//projectaon.org/staff/christian/gamebook.js/fotw.php?callback=?',
-    gamebook_url = 'fotw.json',
-    debug = false,
+    gamebook_url = 'fotw_generated.json',
+    debug = true,
     data,
     synonyms = {},
     curr_section = '1',
@@ -138,7 +138,7 @@ $(document).ready(function($) {
     },
 
     printSectionNumber = function(si) {
-        print('{0}({1})'.f(new Array(32).join(' '), si), 'yellow');
+        print('{0}({1})'.f(new Array(38).join(' '), si), 'yellow');
     },
 
     getNames = function(items) {
@@ -485,7 +485,7 @@ $(document).ready(function($) {
         if (!isStillAlive()) { return; }
         if (!sect.hasOwnProperty('visited')) {
             printSectionNumber(curr_section);
-            term.echo(sect.text);
+            print(sect.text);
             sect.visited = true;
             if (isInArray('Healing', action_chart.kai_disciplines) && !sect.hasOwnProperty('enemies')) {
                 if (action_chart.endurance.current < calculateEndurance().val) {

@@ -4,7 +4,7 @@ from Queue import *
 from pprint import pprint
 from lxml import etree
 
-if False:
+if True:
     from nltk.corpus import stopwords
     stopwords = set(stopwords.words('english'))
 else:
@@ -21,6 +21,7 @@ def processPara(para):
     para = para.replace('<ch.emdash/>', "-")
     para = para.replace('<ch.ellips/>', "...")
     para = re.sub('</?quote/?>', "\"", para)
+    para = re.sub('</?onomatopoeia>', '', para)
     return textwrap.wrap(para, 80)
 
 sections = OrderedDict()
@@ -29,18 +30,15 @@ parser = etree.XMLParser(resolve_entities=False)
 tree = etree.parse('fotw.xml', parser=parser)
 root = tree.getroot()
 
-#print 'extracting'
 for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
 #for sect_elem in root.findall('.//section[@id="sect%s"]' % 160):
     sect_id = sect_elem.find('.//title').text
-    #sys.stdout.write('.')
-    #sys.stdout.flush()
-    #if int(sect_id) % 80 == 0: print
     sect_paras = []
     options = []
     combat = {}
     enemies = []
     rnt_found = False
+    ac_found = False
     is_special = False
     for item in sect_elem.find('data'):
         s = etree.tostring(item).strip()
@@ -52,6 +50,9 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
                 if '<typ class="attribute">%s</typ>' % a in s:
                     s = s.replace('<typ class="attribute">%s</typ>' % a, a)
                     is_special = True
+            if '<a idref=\"action\">Action Chart</a>' in s:
+                ac_found = True
+                s = s.replace('<a idref=\"action\">Action Chart</a>', 'Action Chart')
             sect_paras.append(processPara(s))
         elif item.tag == 'combat':
             e = {'name': item.find('.//enemy').text,
@@ -98,8 +99,6 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
     if combat: section['combat'] = combat
     if is_random_pick: section['is_random_pick'] = True
     if is_special: section['is_special'] = True
-    #print json.dumps(section, indent=4)
-    #print '-------------------------------------'
 
     # merge custom content
     if sect_id in custom['sections']:
@@ -118,7 +117,19 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
                     if 'auto' in custom_opt:
                         opt['auto'] = True
                     break
+
     sections[sect_id] = section
+
+    # special case reporting
+    report = []
+    if ac_found:
+        report.append('ac_found')
+    if rnt_found and not is_random_pick:
+        report.append('rnt_found')
+    if is_special:
+        report.append('is_special')
+    if report:
+        print '%s: %s' % (sect_id, ', '.join(report))
 
 q = Queue()
 visited = set()
@@ -130,7 +141,7 @@ while not q.empty():
     #print sect_id
     to_set.append(sect_id)
     section_od[sect_id] = sections[sect_id]
-    if sect_id == '197': continue
+#    if sect_id == '197': continue
     for opt in sections[sect_id]['options']:
         if opt['section'] not in visited:
             q.put(opt['section'])
@@ -144,4 +155,7 @@ custom['setup'] = setup_od
 for f in ['prompt', 'intro_sequence', 'setup', 'synonyms']:
     result_od[f] = custom[f]
 result_od['sections'] = section_od
-json.dump(result_od, open('fotw_generated.json', 'w'), indent=4)
+#json.dump(result_od, open('fotw_generated.json', 'w'), indent=4)
+open('fotw_generated.json', 'w').write('\n'.join([line.rstrip() for line in json.dumps(result_od, indent=4).split('\n')]))
+
+print 'produced %d sections' % len(result_od['sections'])
