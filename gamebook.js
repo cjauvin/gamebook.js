@@ -338,7 +338,7 @@ $(document).ready(function($) {
         case '7':
             var evasion_opt, combat_ratio,
             doCombatRound = function() {
-                var r = pickRandomNumber();
+                var r = pickRandomNumber(),
                 s, pts, alive, win_opt;
                 $.each(combat_results_ranges, function(i, range) {
                     if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
@@ -363,6 +363,7 @@ $(document).ready(function($) {
                 return alive;
             };
 
+            // special aspect
             if (round === 0) {
                 combat_ratio = (calculateCombatSkill(enemy).val + 2) - enemy.combat_skill;
                 print('Your Combat Ratio is {0}'.f(combat_ratio), 'red');
@@ -406,8 +407,78 @@ $(document).ready(function($) {
                 });
             }
             break;
-        };
 
+        case '60':
+            var evasion_opt,
+            combat_ratio = (calculateCombatSkill(enemy).val + 2) - enemy.combat_skill;
+            doCombatRound = function() {
+                var r = pickRandomNumber(),
+                s, pts, alive, win_opt;
+                $.each(combat_results_ranges, function(i, range) {
+                    if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
+                });
+                pts = combat_results_table[r][s];
+                if (pts[0] === 'k') { pts[0] = enemy.endurance; }
+                if (pts[1] === 'k') { pts[1] = action_chart.endurance.current; }
+                if (round < 2) { pts[1] = 0; } // special aspect
+                if (enemy.hasOwnProperty('is_undead')) { pts[0] *= 2; }
+                enemy.endurance -= Math.min(pts[0], enemy.endurance);
+                action_chart.endurance.current -= Math.min(pts[1], action_chart.endurance.current);
+                print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], action_chart.endurance.current), 'red');
+                alive = isStillAlive();
+                if (enemy.endurance <= 0 && alive) {
+                    print('{0} has died.'.f(enemy.name), 'red');
+                    win_opt = sect.options[sect.combat.win.option];
+                    print('({0})'.f(win_opt.text));
+                    setPressKeyMode(function() {
+                        doSection(win_opt.section);
+                    });
+                    return false;
+                }
+                return alive;
+            };
+
+            if (round === 0) {
+                print('Your Combat Ratio is {0}'.f(combat_ratio), 'red');
+            }
+
+            if (sect.combat.hasOwnProperty('evasion') && round >= sect.combat.evasion.n_rounds) {
+                setConfirmMode({
+                    prompt: '[[;#000;#ff0][evade y/n]]',
+                    yes: function() {
+                        var r = pickRandomNumber();
+                        s, pts;
+                        $.each(combat_results_ranges, function(i, range) {
+                            if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
+                        });
+                        pts = combat_results_table[r][s];
+                        action_chart.endurance.current -= Math.min(pts[0], action_chart.endurance.current);
+                        enemy.endurance -= pts[1];
+                        print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], action_chart.endurance.current), 'red');
+                        evasion_opt = sect.options[sect.combat.evasion.option];
+                        print('({0})'.f(evasion_opt.text));
+                        setPressKeyMode(function() {
+                            doSection(evasion_opt.section);
+                        });
+                    },
+                    no: function() {
+                        if (doCombatRound()) {
+                            doCombatSpecial(enemy, round + 1);
+                        }
+                    }
+                });
+            } else {
+                setPressKeyMode(function() {
+                    if (doCombatRound()) {
+                        doCombatSpecial(enemy, round + 1);
+                    }
+                });
+            }
+            break;
+
+        default:
+            print('Error: special combat section {0} is not implemented.'.f(curr_section), 'blue');
+        };
     },
 
     doCombat = function(enemy, round) {
@@ -415,7 +486,7 @@ $(document).ready(function($) {
         evasion_opt,
         combat_ratio = calculateCombatSkill(enemy).val - enemy.combat_skill;
         doCombatRound = function() {
-            var r = pickRandomNumber();
+            var r = pickRandomNumber(),
             s, pts, alive, win_opt;
             $.each(combat_results_ranges, function(i, range) {
                 if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
@@ -501,18 +572,6 @@ $(document).ready(function($) {
             });
             break;
 
-        case '40':
-            updateEndurance(Number.POSITIVE_INFINITY);
-            print('Your ENDURANCE was restored.', 'blue');
-            doSection();
-            break;
-
-        case '31':
-            updateEndurance(6);
-            print('You gained ENDURANCE..', 'blue');
-            doSection();
-            break;
-
         case '57':
             setPressKeyMode(function() {
                 var r = pickRandomNumber(),
@@ -521,6 +580,14 @@ $(document).ready(function($) {
                 print('You have picked {0}: you lose {1} Gold Crowns.'.f(r, g), 'blue');
                 doSection();
             });
+            break;
+
+        case '69':
+            if (!isInArray('Mindshield', action_chart.kai_disciplines)) {
+                updateEndurance(-2);
+                print('You lost ENDURANCE.', 'blue');
+            }
+            doSection();
             break;
 
         case '308':
@@ -545,7 +612,7 @@ $(document).ready(function($) {
                             msg += 'You win 3 Gold Crowns!';
                             action_chart.gold += 3;
                         } else {
-                            msg += 'You lose 3 Gold Crowns..';
+                            msg += 'You lose 3 Gold Crowns.';
                             action_chart.gold -= Math.min(action_chart.gold, 3);
                         }
                         print(msg, 'blue');
@@ -556,14 +623,6 @@ $(document).ready(function($) {
                     }
                 });
             }
-            break;
-
-        case '29':
-        case '321':
-        case '154':
-            updateEndurance(-2);
-            print('Lost ENDURANCE..', 'blue');
-            doSection();
             break;
 
         case '240':
@@ -604,7 +663,7 @@ $(document).ready(function($) {
 
         default:
             print('Error: special section {0} is not implemented.'.f(curr_section), 'blue');
-        }
+        };
     },
 
     doSection = function(next_section) {
@@ -618,7 +677,7 @@ $(document).ready(function($) {
         }
         var sect = data.sections[curr_section];
         if (data.sections[prev_section].hasOwnProperty('must_eat') && data.sections[prev_section].must_eat) {
-            print('You are hungry and thus lose ENDURANCE..', 'blue');
+            print('You are hungry and thus lost some ENDURANCE.', 'blue');
             updateEndurance(-3);
         }
         if (!isStillAlive()) { return; }
@@ -638,6 +697,14 @@ $(document).ready(function($) {
             sect.is_special = false; // to avoid redoing it next time
             doSpecialSection();
             return;
+        }
+        if (sect.hasOwnProperty('endurance')) {
+            updateEndurance(sect.endurance);
+            if (sect.endurance < 0) {
+                print('You lost ENDURANCE.', 'blue');
+            } else {
+                print('You gained ENDURANCE.', 'blue');
+            }
         }
         if (sect.hasOwnProperty('combat')) {
             $.each(sect.combat.enemies, function(i, enemy) {
@@ -880,7 +947,7 @@ $(document).ready(function($) {
         if (!command) { return; }
 
         var opt_match_results = [], // list of [n_opt_matches, opt idx]'s, one for every option, to be sorted
-        input_tokens = command.split(/[^A-Za-z0-9']+/), // every nonalpha except "'"
+        input_tokens = command.split(/[^A-Za-z0-9'-]+/), // every nonalpha except "'" and "-"
         section_input = command.match(/\d+/),
         valid_section_input_found = false,
         matched_opt_idx, altern_opt_idx,
@@ -1314,10 +1381,10 @@ $(document).ready(function($) {
                 });
                 data.intro_sequence[data.intro_sequence.length-1] += '\n\n' + stars;
                 if (debug) {
-                    action_chart.combat_skill = 16;
+                    action_chart.combat_skill = 10;
                     action_chart.endurance.initial = 20;
                     action_chart.endurance.current = 18;
-                    action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage'];
+                    action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Mindshield'];
                     action_chart.weaponskill = 'Sword';
                     action_chart.weapons = [{name: 'Sword',ac_section:'weapons'}, {name: 'Short Sword', ac_section: 'weapons'}];
                     action_chart.backpack_items.push(data.setup.equipment[5]); // healing potion

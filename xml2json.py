@@ -41,6 +41,7 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
     ac_found = False
     stats_found = False
     undead_found = False
+    sommerswerd_found = False
     immune_to_mindblast_found = False
     illustration_found = False
     must_eat = False
@@ -62,6 +63,8 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
                 s = s.replace('<a idref=\"action\">Action Chart</a>', 'Action Chart')
             if 'undead' in s.lower():
                 undead_found = True
+            if 'sommerswerd' in s.lower():
+                sommerswerd_found = True
             if 'immune' in s.lower() and 'mindblast' in s.lower():
                 immune_to_mindblast_found = True
             if 'Meal' in s and 'must' in s:
@@ -92,7 +95,7 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
     elif len(options) > 1:
         for opt in options:
             words = []
-            for w in re.split('\W+', opt['text']):
+            for w in re.split("[^A-Za-z0-9'-]+", opt['text']): # every nonalpha except "'" and "-"
                 w = w.lower()
                 if len(w) < 3 or w in stopwords or re.match('\d+', w): continue
                 words.append(w)
@@ -111,7 +114,7 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
 
     section = {'text': sect_text, 'options': options}
     if combat:
-        if undead_found:
+        if undead_found or sommerswerd_found:
             assert len(combat['enemies']) == 1
             combat['enemies'][0]['is_undead'] = True
         if immune_to_mindblast_found:
@@ -130,14 +133,13 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
         if 'alternate_options' in cust_sect:
             section['alternate_options'] = True
         if 'is_special' in cust_sect:
-        #    if cust_sect['is_special']:
             section['is_special'] = True
-        #     else:
-        #         section.pop('is_special', None)
-        if 'combat' in cust_sect:
-            section['combat'] = cust_sect['combat']
         if 'items' in cust_sect:
             section['items'] = cust_sect['items']
+        if 'endurance' in cust_sect:
+            section['endurance'] = cust_sect['endurance']
+        if 'combat' in cust_sect:
+            section['combat'].update(cust_sect['combat'])
         for custom_opt in custom['sections'][sect_id].get('options', []):
             # no key to match here, so we got to match using opt.section (thus the need to search)
             #print custom_opt['section']
