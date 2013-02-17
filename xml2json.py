@@ -15,6 +15,7 @@ def processPara(para):
     para = para.replace('<ch.endash/>', "-")
     para = para.replace('<ch.emdash/>', "-")
     para = para.replace('<ch.ellips/>', "...")
+    para = para.replace('<ch.thinspace/>', "")
     para = re.sub('</?quote/?>', "\"", para)
     para = re.sub('</?onomatopoeia>', '', para)
     return textwrap.wrap(para, 80)
@@ -38,12 +39,16 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
     enemies = []
     rnt_found = False
     ac_found = False
-    is_special = False
+    stats_found = False
     undead_found = False
     immune_to_mindblast_found = False
     illustration_found = False
+    must_eat = False
+    list_found = False
     for item in sect_elem.find('data'):
         s = etree.tostring(item).strip()
+        if item.tag == 'ul':
+            list_found = True
         if item.tag == 'p':
             if '<a idref="random">Random Number Table</a>' in s:
                 rnt_found = True
@@ -51,7 +56,7 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             for a in ['COMBAT SKILL', 'ENDURANCE']:
                 if '<typ class="attribute">%s</typ>' % a in s:
                     s = s.replace('<typ class="attribute">%s</typ>' % a, a)
-                    is_special = True
+                    stats_found = True
             if '<a idref=\"action\">Action Chart</a>' in s:
                 ac_found = True
                 s = s.replace('<a idref=\"action\">Action Chart</a>', 'Action Chart')
@@ -59,6 +64,8 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
                 undead_found = True
             if 'immune' in s.lower() and 'mindblast' in s.lower():
                 immune_to_mindblast_found = True
+            if 'Meal' in s and 'must' in s:
+                must_eat = True
             sect_paras.append(processPara(s))
         elif item.tag == 'combat':
             e = {'name': item.find('.//enemy').text,
@@ -115,7 +122,7 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
         section['combat'] = combat
 
     if is_random_pick: section['is_random_pick'] = True
-    if is_special: section['is_special'] = True
+    if must_eat: section['must_eat'] = True
 
     # merge custom content
     if sect_id in custom['sections']:
@@ -123,16 +130,17 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
         if 'alternate_options' in cust_sect:
             section['alternate_options'] = True
         if 'is_special' in cust_sect:
-            if cust_sect['is_special']:
-                section['is_special'] = True
-            else:
-                section.pop('is_special', None)
+        #    if cust_sect['is_special']:
+            section['is_special'] = True
+        #     else:
+        #         section.pop('is_special', None)
         if 'combat' in cust_sect:
             section['combat'] = cust_sect['combat']
         if 'items' in cust_sect:
             section['items'] = cust_sect['items']
         for custom_opt in custom['sections'][sect_id].get('options', []):
             # no key to match here, so we got to match using opt.section (thus the need to search)
+            #print custom_opt['section']
             for opt in section['options']:
                 if opt.get('section') == custom_opt['section']:
                     if 'words' in custom_opt:
@@ -141,6 +149,8 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
                         opt['requirements'] = custom_opt['requirements']
                     if 'auto' in custom_opt:
                         opt['auto'] = True
+                    if 'text' in custom_opt:
+                        opt['text'] = custom_opt['text']
                     break
 
     sections[sect_id] = section
@@ -148,17 +158,19 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
     # special case reporting
     report = []
     if ac_found:
-        report.append('ac_found')
+        report.append('ac')
     if rnt_found and not is_random_pick:
-        report.append('rnt_found')
-    if is_special:
-        report.append('is_special')
+        report.append('rnt')
+    if stats_found:
+        report.append('stats')
 #    if illustration_found:
 #        report.append('illustration')
+    # if must_eat:
+    #     report.append('must eat')
+    # if list_found:
+    #     report.append('list')
     if report and sect_id not in custom['sections']: #True:
         print '%s: %s' % (sect_id, ', '.join(report))
-
-#exit()
 
 q = Queue()
 visited = set()

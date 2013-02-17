@@ -31,7 +31,6 @@ $(document).ready(function($) {
                 " \\__, |\\__,_|_| |_| |_|\\___|_.__/ \\___/ \\___/|_|\\_(_)/ |___/ ",
                 " |___/                                             |__/      "].join('\n'),
 
-
     isInArray = function(elem, arr) {
         return $.inArray(elem, arr) > -1;
     },
@@ -42,6 +41,7 @@ $(document).ready(function($) {
     debug = true,
     data,
     synonyms = {},
+    prev_section,
     curr_section = '1',
     autocompletion_enabled = true,
     // sequence parts
@@ -183,6 +183,11 @@ $(document).ready(function($) {
             a[n] = 0;
         }
         return a;
+    },
+
+    // 0--9 inc
+    pickRandomNumber = function() {
+        return Math.floor(Math.random() * 10);
     },
 
     setConfirmMode = function(conf) {
@@ -333,7 +338,7 @@ $(document).ready(function($) {
         case '7':
             var evasion_opt, combat_ratio,
             doCombatRound = function() {
-                var r = Math.floor(Math.random() * 10), // 0--9 inc
+                var r = pickRandomNumber();
                 s, pts, alive, win_opt;
                 $.each(combat_results_ranges, function(i, range) {
                     if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
@@ -349,10 +354,9 @@ $(document).ready(function($) {
                 if (enemy.endurance <= 0 && alive) {
                     print('{0} has died.'.f(enemy.name), 'red');
                     win_opt = sect.options[sect.combat.win.option];
-                    term.echo('({0})\n\n'.f(win_opt.text));
+                    print('({0})'.f(win_opt.text));
                     setPressKeyMode(function() {
-                        curr_section = win_opt.section;
-                        doCurrentSection();
+                        doSection(win_opt.section);
                     });
                     return false;
                 }
@@ -373,7 +377,7 @@ $(document).ready(function($) {
                 setConfirmMode({
                     prompt: '[[;#000;#ff0][evade y/n]]',
                     yes: function() {
-                        var r = Math.floor(Math.random() * 10), // 0--9 inc
+                        var r = pickRandomNumber();
                         s, pts;
                         $.each(combat_results_ranges, function(i, range) {
                             if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
@@ -383,10 +387,9 @@ $(document).ready(function($) {
                         enemy.endurance -= pts[1];
                         print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], action_chart.endurance.current), 'red');
                         evasion_opt = sect.options[sect.combat.evasion.option];
-                        term.echo('({0})\n\n'.f(evasion_opt.text));
+                        print('({0})'.f(evasion_opt.text));
                         setPressKeyMode(function() {
-                            curr_section = evasion_opt.section;
-                            doCurrentSection();
+                            doSection(evasion_opt.section);
                         });
                     },
                     no: function() {
@@ -412,7 +415,7 @@ $(document).ready(function($) {
         evasion_opt,
         combat_ratio = calculateCombatSkill(enemy).val - enemy.combat_skill;
         doCombatRound = function() {
-            var r = Math.floor(Math.random() * 10), // 0--9 inc
+            var r = pickRandomNumber();
             s, pts, alive, win_opt;
             $.each(combat_results_ranges, function(i, range) {
                 if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
@@ -428,10 +431,9 @@ $(document).ready(function($) {
             if (enemy.endurance <= 0 && alive) {
                 print('{0} has died.'.f(enemy.name), 'red');
                 win_opt = sect.options[sect.combat.win.option];
-                term.echo('({0})\n\n'.f(win_opt.text));
+                print('({0})'.f(win_opt.text));
                 setPressKeyMode(function() {
-                    curr_section = win_opt.section;
-                    doCurrentSection();
+                    doSection(win_opt.section);
                 });
                 return false;
             }
@@ -446,7 +448,7 @@ $(document).ready(function($) {
             setConfirmMode({
                 prompt: '[[;#000;#ff0][evade y/n]]',
                 yes: function() {
-                    var r = Math.floor(Math.random() * 10), // 0--9 inc
+                    var r = pickRandomNumber();
                     s, pts;
                     $.each(combat_results_ranges, function(i, range) {
                         if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
@@ -456,10 +458,9 @@ $(document).ready(function($) {
                     enemy.endurance -= pts[1];
                     print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], action_chart.endurance.current), 'red');
                     evasion_opt = sect.options[sect.combat.evasion.option];
-                    term.echo('({0})\n\n'.f(evasion_opt.text));
+                    print('({0})'.f(evasion_opt.text));
                     setPressKeyMode(function() {
-                        curr_section = evasion_opt.section;
-                        doCurrentSection();
+                        doSection(evasion_opt.section);
                     });
                 },
                 no: function() {
@@ -481,10 +482,51 @@ $(document).ready(function($) {
         var sect = data.sections[curr_section];
         switch (curr_section) {
 
+        case '21':
+            setPressKeyMode(function() {
+                var r = pickRandomNumber(),
+                g = r ? r * 3 : 30;
+                action_chart.gold += g;
+                print('You have picked {0}: {1} Gold Crowns.'.f(r, g), 'blue');
+                print('You then pay 1 Gold Crown for the room.', 'blue');
+                setConfirmMode({
+                    prompt: '[[;#000;#ff0][continue y/n]]',
+                    yes: function() {
+                        doSection(sect.options[0].section);
+                    },
+                    no: function() {
+                        term.set_prompt(cmd_prompt);
+                    }
+                });
+            });
+            break;
+
+        case '40':
+            updateEndurance(Number.POSITIVE_INFINITY);
+            print('Your ENDURANCE was restored.', 'blue');
+            doSection();
+            break;
+
+        case '31':
+            updateEndurance(6);
+            print('You gained ENDURANCE..', 'blue');
+            doSection();
+            break;
+
+        case '57':
+            setPressKeyMode(function() {
+                var r = pickRandomNumber(),
+                g = r ? r : 10;
+                action_chart.gold -= g;
+                print('You have picked {0}: you lose {1} Gold Crowns.'.f(r, g), 'blue');
+                doSection();
+            });
+            break;
+
         case '308':
             if (action_chart.gold < 3) {
                 print("You don't have enough Gold Crowns to play.", 'blue');
-                doCurrentSection();
+                doSection();
             } else {
                 setConfirmMode({
                     prompt: '[[;#000;#ff0][play y/n]]',
@@ -492,8 +534,8 @@ $(document).ready(function($) {
                         var rolls = [],
                         i, r1, r2, msg;
                         for (i = 0; i < 6; i += 2) {
-                            r1 = Math.floor(Math.random() * 10);
-                            r2 = Math.floor(Math.random() * 10);
+                            r1 = pickRandomNumber();
+                            r2 = pickRandomNumber();
                             rolls.push([r1, r2, (r1 + r2 === 0) ? Number.POSITIVE_INFINITY : (r1 + r2)]);
                         }
                         msg = 'You roll {0}-{1}, the first player {2}-{3} and the second player {4}-{5}\n'.f(rolls[0][0], rolls[0][1], rolls[1][0],
@@ -510,22 +552,18 @@ $(document).ready(function($) {
                         doSpecialSection();
                     },
                     no: function() {
-                        doCurrentSection();
+                        doSection();
                     }
                 });
             }
             break;
 
+        case '29':
         case '321':
-            updateEndurance(-2);
-            print('Lost ENDURANCE..', 'blue');
-            doCurrentSection();
-            break;
-
         case '154':
             updateEndurance(-2);
             print('Lost ENDURANCE..', 'blue');
-            doCurrentSection();
+            doSection();
             break;
 
         case '240':
@@ -535,12 +573,12 @@ $(document).ready(function($) {
                 updateEndurance(Math.round((calculateEndurance().val - action_chart.endurance.current) / 2));
             }
             print('Healing..', 'blue');
-            doCurrentSection();
+            doSection();
             break;
 
         case '12':
             setPressKeyMode(function() {
-                var r = Math.floor(Math.random() * 10); // 0--9 inc
+                var r = pickRandomNumber();
                 if (isInArray('Healing', action_chart.kai_disciplines)) {
                     r += 2;
                 }
@@ -551,8 +589,7 @@ $(document).ready(function($) {
                         setConfirmMode({
                             prompt: '[[;#000;#ff0][continue y/n]]',
                             yes: function() {
-                                curr_section = opt.section;
-                                doCurrentSection();
+                                doSection(opt.section);
                             },
                             no: function() {
                                 // remove all options other than the picked one
@@ -570,12 +607,20 @@ $(document).ready(function($) {
         }
     },
 
-    doCurrentSection = function() {
+    doSection = function(next_section) {
         if (!data.sections.hasOwnProperty(curr_section)) {
             print('Error: section {0} is not implemented.'.f(curr_section), 'blue');
             return;
         }
+        if (next_section !== undefined) {
+            prev_section = curr_section;
+            curr_section = next_section;
+        }
         var sect = data.sections[curr_section];
+        if (data.sections[prev_section].hasOwnProperty('must_eat') && data.sections[prev_section].must_eat) {
+            print('You are hungry and thus lose ENDURANCE..', 'blue');
+            updateEndurance(-3);
+        }
         if (!isStillAlive()) { return; }
         setAutocompletionWords(sect);
         if (!sect.hasOwnProperty('visited')) {
@@ -609,14 +654,14 @@ $(document).ready(function($) {
                 // if auto mode, the item is added automatically
                 if (item.hasOwnProperty('auto')) {
                     action_chart[item.ac_section].push(item);
-                    print('The {0} was added to your Action Chart'.f(item.name), 'blue');
+                    print('The {0} was added to your Action Chart.'.f(item.name), 'blue');
                 }
                 // else: it must dealt with a command (see (*))
             });
         }
         if (sect.hasOwnProperty('is_random_pick')) {
             setPressKeyMode(function() {
-                var r = Math.floor(Math.random() * 10); // 0--9 inc
+                var r = pickRandomNumber();
                 $.each(sect.options, function(i, opt) {
                     if (r >= opt.range[0] && r <= opt.range[1]) {
                         print('You have picked {0}'.f(r), 'blue');
@@ -624,8 +669,7 @@ $(document).ready(function($) {
                         setConfirmMode({
                             prompt: '[[;#000;#ff0][continue y/n]]',
                             yes: function() {
-                                curr_section = opt.section;
-                                doCurrentSection();
+                                doSection(opt.section);
                             },
                             no: function() {
                                 // remove all options other than the picked one
@@ -641,8 +685,7 @@ $(document).ready(function($) {
             setConfirmMode({
                 prompt: '[[;#000;#ff0][continue y/n]]',
                 yes: function() {
-                    curr_section = sect.options[0].section;
-                    doCurrentSection();
+                    doSection(sect.options[0].section);
                 }
             });
         } else if (sect.options.length === 0) {
@@ -656,20 +699,23 @@ $(document).ready(function($) {
                 doSetupSequence();
             });
         } else {
+            var auto_found = false;
             $.each(sect.options, function(i, opt) {
                 if (opt.hasOwnProperty('auto') && satisfiesOptionRequirements(opt)) {
                     print(opt.text);
                     setConfirmMode({
                         yes: function() {
-                            curr_section = opt.section;
-                            doCurrentSection();
+                            doSection(opt.section);
                         }
                     });
+                    auto_found = true;
                     return false;
                 }
             });
             // accept user input
-            term.set_prompt(cmd_prompt);
+            if (!auto_found) {
+                term.set_prompt(cmd_prompt);
+            }
         }
     },
 
@@ -690,7 +736,6 @@ $(document).ready(function($) {
     },
 
     printActionChart = function() {
-        //term.echo('Action Chart\n------------' + '\n\n');
         term.echo('COMBAT SKILL   : {0}'.f(calculateCombatSkill().str));
         term.echo('ENDURANCE      : {0} / {1}'.f(action_chart.endurance.current, calculateEndurance().str));
         var kds = [];
@@ -711,8 +756,8 @@ $(document).ready(function($) {
         if (sequence_mode.seq_idx === 1) {
             sequence_mode.is_active = false;
             setPressKeyMode(function() {
-                action_chart.combat_skill = Math.floor(Math.random() * 10) + 10;
-                action_chart.endurance.initial = action_chart.endurance.current = Math.floor(Math.random() * 10) + 20;
+                action_chart.combat_skill = pickRandomNumber() + 10;
+                action_chart.endurance.initial = action_chart.endurance.current = pickRandomNumber() + 20;
                 print('COMBAT SKILL: {0}, ENDURANCE: {1}'.f(action_chart.combat_skill, action_chart.endurance.current), 'blue');
                 sequence_mode.is_active = true;
                 term.set_prompt(sequence_mode.prompt);
@@ -768,7 +813,7 @@ $(document).ready(function($) {
         } else if (sequence_mode.seq_idx === 14) {
             sequence_mode.is_active = false;
             setPressKeyMode(function() {
-                action_chart.gold = Math.floor(Math.random() * 10) + 10;
+                action_chart.gold = pickRandomNumber() + 10;
                 print('Gold Crowns: {0}'.f(action_chart.gold), 'blue');
                 sequence_mode.is_active = true;
                 term.set_prompt(press_key_mode.prompt);
@@ -856,7 +901,7 @@ $(document).ready(function($) {
 
         if (command === 'again') {
             printSectionNumber(curr_section);
-            term.echo(sect.text);
+            print(sect.text);
             return;
         }
 
@@ -899,8 +944,7 @@ $(document).ready(function($) {
 
         if (command === 'continue') {
             if (sect.options.length === 1) {
-                curr_section = sect.options[0].section;
-                doCurrentSection();
+                doSection(sect.options[0].section);
                 return;
             }
         }
@@ -909,7 +953,7 @@ $(document).ready(function($) {
         if (m) {
             item = matchInventoryItem(m[1].toLowerCase());
             if (item) {
-                print('Drop the {0} from inventory?'.f(item.name), 'blue');
+                print('Drop the {0} from your inventory?'.f(item.name), 'blue');
                 setConfirmMode({
                     yes: function() {
                         action_chart[item.ac_section].remove(item);
@@ -932,6 +976,7 @@ $(document).ready(function($) {
                         if (item.hasOwnProperty('effect') && item.effect.type === 'consumable') {
                             if (item.effect.hasOwnProperty('endurance')) {
                                 updateEndurance(item.effect.endurance);
+                                print('You gained {0} ENDURANCE points.'.f(item.effect.endurance), 'blue');
                             }
                             action_chart[item.ac_section].remove(item);
                         } else {
@@ -945,13 +990,27 @@ $(document).ready(function($) {
             print('(If you wanted to use an inventory item, not sure which one.)', 'blue');
         }
 
+        if (command.match(/^eat.*/)) {
+            if (!sect.hasOwnProperty('must_eat')) {
+                print('You are not hungry enough to eat.', 'blue');
+            } else {
+                if (action_chart.meals === 0) {
+                    print('You have no Meal left.', 'blue');
+                } else {
+                    action_chart.meals -= 1;
+                    data.sections[curr_section].must_eat = false;
+                    print('You eat a Meal ({0} left).'.f(action_chart.meals), 'blue');
+                }
+            }
+            return;
+        }
+
         // try direct section #
         if (section_input) {
             $.each(sect.options, function(i, opt) {
                 if (opt.section === section_input[0]) {
                     if (satisfiesOptionRequirements(opt)) {
-                        curr_section = opt.section;
-                        doCurrentSection();
+                        doSection(opt.section);
                         valid_section_input_found = true;
                     }
                 }
@@ -973,7 +1032,7 @@ $(document).ready(function($) {
                         item: item
                     });
                 }
-                // else: auto mode: add them automatically (in doCurrentSection)
+                // else: auto mode: add them automatically (in doSection)
             });
         }
 
@@ -1062,8 +1121,7 @@ $(document).ready(function($) {
                 yes: function() {
                     var opt = sect.options[matched_opt_idx];
                     if (satisfiesOptionRequirements(opt)) {
-                        curr_section = opt.section;
-                        doCurrentSection();
+                        doSection(opt.section);
                     } else {
                         print('This is not possible.', 'blue');
                         term.set_prompt(cmd_prompt);
@@ -1073,11 +1131,10 @@ $(document).ready(function($) {
                     if (sect.hasOwnProperty('alternate_options') &&
                         sect.alternate_options) {
                         altern_opt_idx = matched_opt_idx === 0 ? 1 : 0;
-                        term.echo(sect.options[altern_opt_idx].text + '\n\n');
+                        print(sect.options[altern_opt_idx].text);
                         setConfirmMode({
                             yes: function() {
-                                curr_section = sect.options[altern_opt_idx].section;
-                                doCurrentSection();
+                                doSection(sect.options[altern_opt_idx].section);
                             }
                         });
                     } else {
@@ -1087,23 +1144,49 @@ $(document).ready(function($) {
             });
         } else { // artificial/engine option
             if (opt.hasOwnProperty('item')) {
-                print('Take the {0}?'.f(opt.item.name));
-                setConfirmMode({
-                    yes: function() {
-                        var item = opt.item,
-                        ac_sect = opt.item.ac_section;
-                        if (action_chart[ac_sect].length === 2) {
-                            print("You are already carrying two weapons (use 'drop' if you really want it).", 'blue');
-                        } else {
-                            action_chart[ac_sect].push(item);
-                            print('The {0} was added to the Action Chart.'.f(item.name), 'blue');
+                if (opt.item.hasOwnProperty('gold')) {
+                    print('Buy the {0}?'.f(opt.item.name));
+                    setConfirmMode({
+                        yes: function() {
+                            if (action_chart.gold >= opt.item.gold) {
+                                var item = opt.item,
+                                ac_sect = opt.item.ac_section;
+                                // !!!
+                                if (ac_sect === 'weapons' && action_chart[ac_sect].length === 2) {
+                                    print("You are already carrying two weapons (use 'drop' if you really want it).", 'blue');
+                                } else {
+                                    action_chart[ac_sect].push(item);
+                                    action_chart.gold -= opt.item.gold;
+                                    print('The {0} was added to the Action Chart.'.f(item.name), 'blue');
+                                }
+                            } else {
+                                print("You don't have enough Gold Crowns.", 'blue');
+                            }
+                            term.set_prompt(cmd_prompt);
+                        },
+                        no: function() {
+                            term.set_prompt(cmd_prompt);
                         }
-                        term.set_prompt(cmd_prompt);
-                    },
-                    no: function() {
-                        term.set_prompt(cmd_prompt);
-                    }
-                });
+                    });
+                } else {
+                    print('Take the {0}?'.f(opt.item.name));
+                    setConfirmMode({
+                        yes: function() {
+                            var item = opt.item,
+                            ac_sect = opt.item.ac_section;
+                            if (ac_sect === 'weapons' && action_chart[ac_sect].length === 2) {
+                                print("You are already carrying two weapons (use 'drop' if you really want it).", 'blue');
+                            } else {
+                                action_chart[ac_sect].push(item);
+                                print('The {0} was added to the Action Chart.'.f(item.name), 'blue');
+                            }
+                            term.set_prompt(cmd_prompt);
+                        },
+                        no: function() {
+                            term.set_prompt(cmd_prompt);
+                        }
+                    });
+                }
             }
 
         }
@@ -1134,7 +1217,7 @@ $(document).ready(function($) {
                     if (sequence_mode.which === 'engine_intro') {
                         // reached end of engine intro
                         if (sequence_mode.seq_idx === sequence_mode.seq.length) {
-                            term.echo('Do you want to read the book intro?\n\n');
+                            print('Do you want to read the book intro?');
                             sequence_mode.is_active = false;
                             setConfirmMode({
                                 yes: function() {
@@ -1160,7 +1243,7 @@ $(document).ready(function($) {
                     sequence_mode.is_active = false;
                     term.clear();
                     term.consumeSingleKeypress(); // FF keypress/keydown bug
-                    doCurrentSection();
+                    doSection();
                 }
                 return false;
             }
@@ -1234,14 +1317,14 @@ $(document).ready(function($) {
                     action_chart.combat_skill = 16;
                     action_chart.endurance.initial = 20;
                     action_chart.endurance.current = 18;
-                    action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Mind Over Matter'];
+                    action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage'];
                     action_chart.weaponskill = 'Sword';
-                    action_chart.weapons = []; //[{name: 'Sword'}, {name: 'Short Sword'}];
+                    action_chart.weapons = [{name: 'Sword',ac_section:'weapons'}, {name: 'Short Sword', ac_section: 'weapons'}];
                     action_chart.backpack_items.push(data.setup.equipment[5]); // healing potion
                     action_chart.special_items.push(data.setup.equipment[3]); // chainmail
-                    action_chart.gold = 10;
-                    curr_section = location.search.match(/sect=(\d+)/) ? location.search.match(/sect=(\d+)/)[1] : '1';
-                    doCurrentSection();
+                    action_chart.gold = 11;
+                    action_chart.meals = 2;
+                    doSection(location.search.match(/sect=(\d+)/) ? location.search.match(/sect=(\d+)/)[1] : '1');
 
                 } else {
                     initSequenceMode(engine_intro, 'engine_intro');
