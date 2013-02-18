@@ -38,7 +38,7 @@ $(document).ready(function($) {
     // uses jsonp to avoid XSS issues
     //gamebook_url = '//projectaon.org/staff/christian/gamebook.js/fotw.php?callback=?',
     gamebook_url = 'fotw_generated.json',
-    debug = true,
+    debug = false,
     data,
     synonyms = {},
     prev_section,
@@ -59,7 +59,7 @@ $(document).ready(function($) {
                     prompt: '[[;#000;#ff0][accept y/n]]',
                     yes_callback: $.noop,
                     no_callback: $.noop},
-    choice_mode = {is_active: false,
+    option_mode = {is_active: false,
                    prompt: '[[;#000;#ff0][choose an item]]',
                    range: [0, 9],
                    callback: $.noop},
@@ -70,17 +70,17 @@ $(document).ready(function($) {
         "'help' or '?': show this message\n" +
         "'ac' or '!'  : show the Action Chart\n" +
         "'drop'/'use' : one of your inventory items\n" +
-        "'continue'   : if the current section has only one option, go to the next\n" +
+        "'continue'   : if the current section has only one choice, go to the next\n" +
         "'123'        : go to section 123 (if possible from current section)\n" +
-        "'hint'       : show a random word from the options of the current section\n" +
-        "'options'    : reveal the set of options for the current section\n" +
+        "'hint'       : show a random word from the choices of the current section\n" +
+        "'choices'    : reveal the set of choices for the current section\n" +
         "'auto'       : toggle word autocompletion on/off\n" +
         "'again'      : print the current section\n" +
         "'restart'    : restart the game (including setup)\n" +
         "'clear'      : clear the screen\n",
 
     engine_intro = [logo + "\n\nWelcome to https://github.com/cjauvin/gamebook.js[gamebook.js], an http://en.wikipedia.org/wiki/Interactive_fiction[IF]-style gamebook engine created by\nhttp://christianjauv.in[Christian Jauvin].",
-                    "Instead of navigating an explicit menu of options, as in the classical\ngamebooks, you are a given a console in which you are free to type\nany command, after each section, using clues from the text. The engine\nthen tries to match your input with one of the predefined options,\nyielding a gameplay more akin to http://en.wikipedia.org/wiki/Interactive_fiction[interactive fiction].",
+                    "Instead of navigating an explicit menu of choices, as in the classical\ngamebooks, you are a given a console in which you are free to type\nany command, after each section, using clues from the text. The engine\nthen tries to match your input with one of the predefined choices,\nyielding a gameplay more akin to http://en.wikipedia.org/wiki/Interactive_fiction[interactive fiction].",
                     "You're about to play an experimental and incomplete version of\nhttp://en.wikipedia.org/wiki/Fire_on_the_water[Fire on the Water], the second gamebook in the http://en.wikipedia.org/wiki/Lone_Wolf_(gamebooks)[Lone Wolf] series,\nwritten by http://en.wikipedia.org/wiki/Joe_Dever[Joe Dever] in 1984. This http://www.projectaon.org/en/Main/FireOnTheWater[electronic version] of the book\nwas created and is being distributed by http://www.projectaon.org/en/Main/Home[Project Aon]. Please note\nthat only the first 53 sections (in http://www.projectaon.org/en/svg/lw/02fotw.svgz[\"story\"], rather than numeric\norder) of the book are currently implemented (but the rest should\nfollow soon).",
                     ["How to Play", help_str]],
 
@@ -207,11 +207,11 @@ $(document).ready(function($) {
         press_key_mode.callback = callback;
     },
 
-    setChoiceMode = function(conf) {
-        choice_mode.is_active = true;
-        term.set_prompt(conf.hasOwnProperty('prompt') ? conf.prompt : choice_mode.prompt);
-        choice_mode.range = conf.range;
-        choice_mode.callback = conf.callback;
+    setOptionMode = function(conf) {
+        option_mode.is_active = true;
+        term.set_prompt(conf.hasOwnProperty('prompt') ? conf.prompt : option_mode.prompt);
+        option_mode.range = conf.range;
+        option_mode.callback = conf.callback;
     },
 
     calculateCombatSkill = function(enemy) {
@@ -296,10 +296,10 @@ $(document).ready(function($) {
         return true;
     },
 
-    satisfiesOptionRequirements = function(opt) {
+    satisfiesChoiceRequirements = function(choice) {
         var ok = true;
-        $.each(Object.keys(opt.requires || []), function(j, key) {
-            var value = opt.requires[key];
+        $.each(Object.keys(choice.requires || []), function(j, key) {
+            var value = choice.requires[key];
             if (key === 'has_visited') {
                 if (!isInArray(value, visited_sections)) {
                     ok = false;
@@ -351,8 +351,8 @@ $(document).ready(function($) {
         var autocomplete_words = [];
         if (autocompletion_enabled) {
             term.set_prompt(cmd_prompt);
-            $.each(sect.options, function(i, opt) {
-                $.each(opt.words || [], function(j, word) {
+            $.each(sect.choices, function(i, choice) {
+                $.each(choice.words || [], function(j, word) {
                     $.each((synonyms[word] || []).concat(word), function(k, syn) {
                         if ($.isArray(syn)) {
                             $.each(syn, function(l, synw) {
@@ -375,10 +375,10 @@ $(document).ready(function($) {
         switch (curr_section) {
 
         case '7':
-            var evasion_opt, combat_ratio,
+            var evasion_choice, combat_ratio,
             doCombatRound = function() {
                 var r = pickRandomNumber(),
-                s, pts, alive, win_opt;
+                s, pts, alive, win_choice;
                 $.each(combat_results_ranges, function(i, range) {
                     if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
                 });
@@ -392,10 +392,10 @@ $(document).ready(function($) {
                 alive = isStillAlive();
                 if (enemy.endurance <= 0 && alive) {
                     print('{0} has died.'.f(enemy.name), 'red');
-                    win_opt = sect.options[sect.combat.win.option];
-                    print('({0})'.f(win_opt.text));
+                    win_choice = sect.choices[sect.combat.win.choice];
+                    print('({0})'.f(win_choice.text));
                     setPressKeyMode(function() {
-                        doSection(win_opt);
+                        doSection(win_choice);
                     });
                     return false;
                 }
@@ -426,10 +426,10 @@ $(document).ready(function($) {
                         action_chart.endurance.current -= Math.min(pts[0], action_chart.endurance.current);
                         enemy.endurance -= pts[1];
                         print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], action_chart.endurance.current), 'red');
-                        evasion_opt = sect.options[sect.combat.evasion.option];
-                        print('({0})'.f(evasion_opt.text));
+                        evasion_choice = sect.choices[sect.combat.evasion.choice];
+                        print('({0})'.f(evasion_choice.text));
                         setPressKeyMode(function() {
-                            doSection(evasion_opt);
+                            doSection(evasion_choice);
                         });
                     },
                     no: function() {
@@ -448,11 +448,11 @@ $(document).ready(function($) {
             break;
 
         case '60':
-            var evasion_opt,
+            var evasion_choice,
             combat_ratio = (calculateCombatSkill(enemy).val + 2) - enemy.combat_skill;
             doCombatRound = function() {
                 var r = pickRandomNumber(),
-                s, pts, alive, win_opt;
+                s, pts, alive, win_choice;
                 $.each(combat_results_ranges, function(i, range) {
                     if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
                 });
@@ -467,10 +467,10 @@ $(document).ready(function($) {
                 alive = isStillAlive();
                 if (enemy.endurance <= 0 && alive) {
                     print('{0} has died.'.f(enemy.name), 'red');
-                    win_opt = sect.options[sect.combat.win.option];
-                    print('({0})'.f(win_opt.text));
+                    win_choice = sect.choices[sect.combat.win.choice];
+                    print('({0})'.f(win_choice.text));
                     setPressKeyMode(function() {
-                        doSection(win_opt);
+                        doSection(win_choice);
                     });
                     return false;
                 }
@@ -494,10 +494,10 @@ $(document).ready(function($) {
                         action_chart.endurance.current -= Math.min(pts[0], action_chart.endurance.current);
                         enemy.endurance -= pts[1];
                         print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], action_chart.endurance.current), 'red');
-                        evasion_opt = sect.options[sect.combat.evasion.option];
-                        print('({0})'.f(evasion_opt.text));
+                        evasion_choice = sect.choices[sect.combat.evasion.choice];
+                        print('({0})'.f(evasion_choice.text));
                         setPressKeyMode(function() {
-                            doSection(evasion_opt);
+                            doSection(evasion_choice);
                         });
                     },
                     no: function() {
@@ -522,11 +522,11 @@ $(document).ready(function($) {
 
     doCombat = function(enemy, round) {
         var sect = data.sections[curr_section],
-        evasion_opt,
+        evasion_choice,
         combat_ratio = calculateCombatSkill(enemy).val - enemy.combat_skill;
         doCombatRound = function() {
             var r = pickRandomNumber(),
-            s, pts, alive, win_opt;
+            s, pts, alive, win_choice;
             $.each(combat_results_ranges, function(i, range) {
                 if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
             });
@@ -540,10 +540,10 @@ $(document).ready(function($) {
             alive = isStillAlive();
             if (enemy.endurance <= 0 && alive) {
                 print('{0} has died.'.f(enemy.name), 'red');
-                win_opt = sect.options[sect.combat.win.option];
-                print('({0})'.f(win_opt.text));
+                win_choice = sect.choices[sect.combat.win.choice];
+                print('({0})'.f(win_choice.text));
                 setPressKeyMode(function() {
-                    doSection(win_opt);
+                    doSection(win_choice);
                 });
                 return false;
             }
@@ -567,10 +567,10 @@ $(document).ready(function($) {
                     action_chart.endurance.current -= Math.min(pts[0], action_chart.endurance.current);
                     enemy.endurance -= pts[1];
                     print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], action_chart.endurance.current), 'red');
-                    evasion_opt = sect.options[sect.combat.evasion.option];
-                    print('({0})'.f(evasion_opt.text));
+                    evasion_choice = sect.choices[sect.combat.evasion.choice];
+                    print('({0})'.f(evasion_choice.text));
                     setPressKeyMode(function() {
-                        doSection(evasion_opt);
+                        doSection(evasion_choice);
                     });
                 },
                 no: function() {
@@ -602,7 +602,7 @@ $(document).ready(function($) {
                 setConfirmMode({
                     prompt: '[[;#000;#ff0][continue y/n]]',
                     yes: function() {
-                        doSection(sect.options[0]);
+                        doSection(sect.choices[0]);
                     },
                     no: function() {
                         term.set_prompt(cmd_prompt);
@@ -680,18 +680,18 @@ $(document).ready(function($) {
                 if (isInArray('Healing', action_chart.kai_disciplines)) {
                     r += 2;
                 }
-                $.each(sect.options, function(i, opt) {
-                    if (r >= opt.range[0] && r <= opt.range[1]) {
+                $.each(sect.choices, function(i, choice) {
+                    if (r >= choice.range[0] && r <= choice.range[1]) {
                         print('You have picked {0}'.f(r), 'blue');
-                        print('({0})'.f(opt.text));
+                        print('({0})'.f(choice.text));
                         setConfirmMode({
                             prompt: '[[;#000;#ff0][continue y/n]]',
                             yes: function() {
-                                doSection(opt);
+                                doSection(choice);
                             },
                             no: function() {
-                                // remove all options other than the picked one
-                                data.sections[curr_section].options = [opt];
+                                // remove all choices other than the picked one
+                                data.sections[curr_section].choices = [choice];
                                 term.set_prompt(cmd_prompt);
                             }
                         });
@@ -705,42 +705,42 @@ $(document).ready(function($) {
         };
     },
 
-    doSpecialOption = function(option) {
-        switch (option.section) {
+    doSpecialChoice = function(choice) {
+        switch (choice.section) {
         case '142':
             action_chart.special_items.push({name: 'White Pass', ac_section: 'special_items', undroppable: true});
             action_chart.gold -= 10;
             print('Your Action Chart was updated.', 'blue');
             break;
         default:
-            print('Error: special option for section {0} is not implemented.'.f(curr_section), 'blue');
+            print('Error: special choice for section {0} is not implemented.'.f(curr_section), 'blue');
         };
     },
 
-    doSection = function(option) {
+    doSection = function(choice) {
         if (!data.sections.hasOwnProperty(curr_section)) {
             print('Error: section {0} is not implemented.'.f(curr_section), 'blue');
             return;
         }
-        if (option !== undefined) {
+        if (choice !== undefined) {
             prev_section = curr_section;
-            curr_section = option.section;
-            // sometimes options have a stat modifier
-            if (option.hasOwnProperty('endurance')) {
-                updateEndurance(option.endurance);
-                if (option.endurance < 0) {
+            curr_section = choice.section;
+            // sometimes choices have a stat modifier
+            if (choice.hasOwnProperty('endurance')) {
+                updateEndurance(choice.endurance);
+                if (choice.endurance < 0) {
                     print('You lost ENDURANCE.', 'blue');
                 } else {
                     print('You gained ENDURANCE.', 'blue');
                 }
             }
             visited_sections.push(curr_section);
-            if (option.hasOwnProperty('is_special')) {
-                doSpecialOption(option);
+            if (choice.hasOwnProperty('is_special')) {
+                doSpecialChoice(choice);
             }
         }
         var sect = data.sections[curr_section];
-        if (data.sections[prev_section].hasOwnProperty('must_eat') && data.sections[prev_section].must_eat) {
+        if (prev_section && data.sections[prev_section].hasOwnProperty('must_eat') && data.sections[prev_section].must_eat) {
             print('You are hungry and thus lost some ENDURANCE.', 'blue');
             updateEndurance(-3);
         }
@@ -800,33 +800,33 @@ $(document).ready(function($) {
         if (sect.hasOwnProperty('is_random_pick')) {
             setPressKeyMode(function() {
                 var r = pickRandomNumber();
-                $.each(sect.options, function(i, opt) {
-                    if (r >= opt.range[0] && r <= opt.range[1]) {
+                $.each(sect.choices, function(i, choice) {
+                    if (r >= choice.range[0] && r <= choice.range[1]) {
                         print('You have picked {0}'.f(r), 'blue');
-                        print('({0})'.f(opt.text));
+                        print('({0})'.f(choice.text));
                         setConfirmMode({
                             prompt: '[[;#000;#ff0][continue y/n]]',
                             yes: function() {
-                                doSection(opt);
+                                doSection(choice);
                             },
                             no: function() {
-                                // remove all options other than the picked one
-                                data.sections[curr_section].options = [opt];
+                                // remove all choices other than the picked one
+                                data.sections[curr_section].choices = [choice];
                                 term.set_prompt(cmd_prompt);
                             }
                         });
                     }
                 });
             });
-        } else if (sect.options.length === 1) {
-            print(sect.options[0].text);
+        } else if (sect.choices.length === 1) {
+            print(sect.choices[0].text);
             setConfirmMode({
                 prompt: '[[;#000;#ff0][continue y/n]]',
                 yes: function() {
-                    doSection(sect.options[0]);
+                    doSection(sect.choices[0]);
                 }
             });
-        } else if (sect.options.length === 0) {
+        } else if (sect.choices.length === 0) {
             if (curr_section === '197') {
                 print('Sorry, the game is not currently implemented past this section..', 'blue');
             } else { // death
@@ -838,12 +838,12 @@ $(document).ready(function($) {
             });
         } else {
             var auto_found = false;
-            $.each(sect.options, function(i, opt) {
-                if (opt.hasOwnProperty('auto') && satisfiesOptionRequirements(opt)) {
-                    print(opt.text);
+            $.each(sect.choices, function(i, choice) {
+                if (choice.hasOwnProperty('auto') && satisfiesChoiceRequirements(choice)) {
+                    print(choice.text);
                     setConfirmMode({
                         yes: function() {
-                            doSection(opt);
+                            doSection(choice);
                         }
                     });
                     auto_found = true;
@@ -923,7 +923,7 @@ $(document).ready(function($) {
         // choose kai skill
         } else if (sequence_mode.seq_idx === 13) {
             sequence_mode.is_active = false;
-            setChoiceMode({
+            setOptionMode({
                 range: [48, 57],
                 prompt: '[[;#000;#ff0][choose an item]] (' + (5 - action_chart.kai_disciplines.length) + ' left)',
                 callback: function(i) {
@@ -959,7 +959,7 @@ $(document).ready(function($) {
         // equipment
         } else if (sequence_mode.seq_idx === 15) {
             sequence_mode.is_active = false;
-            setChoiceMode({
+            setOptionMode({
                 range: [48, 57],
                 prompt: '[[;#000;#ff0][choose an item]] (' + (2 - setup_equipment_tmp.length) + ' left)',
                 callback: function(i) {
@@ -1017,13 +1017,13 @@ $(document).ready(function($) {
         command = command.trim().toLowerCase();
         if (!command) { return; }
 
-        var opt_match_results = [], // list of [n_opt_matches, opt idx]'s, one for every option, to be sorted
+        var choice_match_results = [], // list of [n_choice_matches, choice idx]'s, one for every choice, to be sorted
         input_tokens = command.split(/[^A-Za-z0-9'-]+/), // every nonalpha except "'" and "-"
         section_input = command.match(/\d+/),
         valid_section_input_found = false,
-        matched_opt_idx, altern_opt_idx,
+        matched_choice_idx, altern_choice_idx,
         sect = $.extend(true, {}, data.sections[curr_section]), // deep clone because we might modify it
-        m, item, opt;
+        m, item, choice;
 
         term.echo('\n');
 
@@ -1053,17 +1053,17 @@ $(document).ready(function($) {
             return;
         }
 
-        if (command === 'options') {
-            $.each(sect.options, function(i, opt) {
-                print(opt.text);
+        if (command === 'choices') {
+            $.each(sect.choices, function(i, choice) {
+                print(choice.text);
             });
             return;
         }
 
         if (command === 'hint') {
             var words = [];
-            $.each(sect.options, function(i, opt) {
-                $.each(opt.words, function(j, word) {
+            $.each(sect.choices, function(i, choice) {
+                $.each(choice.words, function(j, word) {
                     if (!$.isArray(word)) {
                         words.push(word);
                     }
@@ -1081,8 +1081,8 @@ $(document).ready(function($) {
         }
 
         if (command === 'continue') {
-            if (sect.options.length === 1) {
-                doSection(sect.options[0]);
+            if (sect.choices.length === 1) {
+                doSection(sect.choices[0]);
                 return;
             }
         }
@@ -1150,10 +1150,10 @@ $(document).ready(function($) {
 
         // try direct section #
         if (section_input) {
-            $.each(sect.options, function(i, opt) {
-                if (opt.section === section_input[0]) {
-                    if (satisfiesOptionRequirements(opt)) {
-                        doSection(opt);
+            $.each(sect.choices, function(i, choice) {
+                if (choice.section === section_input[0]) {
+                    if (satisfiesChoiceRequirements(choice)) {
+                        doSection(choice);
                         valid_section_input_found = true;
                     }
                 }
@@ -1168,9 +1168,9 @@ $(document).ready(function($) {
         // if items are present.. (*)
         if (sect.hasOwnProperty('items')) {
             $.each(sect.items, function(i, item) {
-                // if auto mode is not set, add artificial (engine) options to allow getting them
+                // if auto mode is not set, add artificial (engine) choices to allow getting them
                 if (!item.hasOwnProperty('auto')) {
-                    sect.options.push({
+                    sect.choices.push({
                         words: [['take', item.name]].concat(item.words || []),
                         item: item
                     });
@@ -1183,21 +1183,21 @@ $(document).ready(function($) {
         // command matching algo //
         ///////////////////////////
 
-        // for each option of the current section..
-        $.each(sect.options, function(i, opt) {
-            // a list of word match structures, one for each option word
-            var opt_word_matches = [],
-            n_opt_word_matches = 0,
-            opt_syn_matches,
+        // for each choice of the current section..
+        $.each(sect.choices, function(i, choice) {
+            // a list of word match structures, one for each choice word
+            var choice_word_matches = [],
+            n_choice_word_matches = 0,
+            choice_syn_matches,
             v_syns;
-            $.each(opt.words || [], function(j, w) {
+            $.each(choice.words || [], function(j, w) {
                 if (!$.isArray(w)) { w = [w]; } // if w is not compound, make it one
                 w = $.map(w, function(v) { return stemmer(v.toLowerCase()); });
-                // match structure: maps to each option word an array of bools: w -> [0, .. 0]
+                // match structure: maps to each choice word an array of bools: w -> [0, .. 0]
                 // if w is a single word "a": "a" -> [0] (size 1 array)
                 // if w is a compound word ["a", "b"], it's first coerced into "a,b",
                 // and then mapped to [0, 0] (i.e because there are two words)
-                opt_syn_matches = {};
+                choice_syn_matches = {};
                 // each synonym of w has an entry in the match structure,
                 // but only 1 such match is considered
                 v_syns = []; // if w is compound, each subword is v
@@ -1208,76 +1208,76 @@ $(document).ready(function($) {
                 $.each(cartesianProduct(v_syns), function(k, w_syns) {
                     w_syns = $.map(w_syns, function(u) { return u; }); // flatten in case a syn is itself a compound
                     //w_syns = $.map(w_syns, function(s) { return s.toLowerCase(); });
-                    opt_syn_matches[w_syns] = zeros(w_syns.length);
+                    choice_syn_matches[w_syns] = zeros(w_syns.length);
                 });
-                //console.log(opt_syn_matches);
-                opt_word_matches.push(opt_syn_matches);
+                //console.log(choice_syn_matches);
+                choice_word_matches.push(choice_syn_matches);
             });
             $.each(input_tokens, function(j, w) {
-                $.each(opt_word_matches, function(k, opt_syn_matches) {
-                    $.each(Object.keys(opt_syn_matches), function(l, s) {
+                $.each(choice_word_matches, function(k, choice_syn_matches) {
+                    $.each(Object.keys(choice_syn_matches), function(l, s) {
                         // split compound word into single words..
                         $.each(s.split(','), function(m, t) {
                             if (levenshteinDist(stemmer(w), t) <= 1) {
                                 // and update the match bool at the proper position in
                                 // the match array (0 for single word)
-                                opt_word_matches[k][s][m] = 1;
+                                choice_word_matches[k][s][m] = 1;
                             }
                         });
                     });
                 });
             });
-            $.each(opt_word_matches, function(j, opt_syn_matches) {
+            $.each(choice_word_matches, function(j, choice_syn_matches) {
                 // for compound words, make sure that all their matching bools are 1
                 // (by reducing their matching bool arrays)
-                var syn_matches = $.map(opt_syn_matches, function(match_bools, s) {
+                var syn_matches = $.map(choice_syn_matches, function(match_bools, s) {
                     return match_bools.reduce(function(b1, b2) { return b1 * b2; });
                 });
                 // since only 1 synonym match is considered, take the max (which cannot be > 1)
-                n_opt_word_matches += Array.max(syn_matches);
+                n_choice_word_matches += Array.max(syn_matches);
             });
-            opt_match_results.push([n_opt_word_matches, i]);
+            choice_match_results.push([n_choice_word_matches, i]);
         });
 
-        opt_match_results.sort().reverse();
+        choice_match_results.sort().reverse();
 
-        // no match, and more than one book (i.e. not artificially added) options
-        if (opt_match_results[0][0] === 0) {
+        // no match, and more than one book (i.e. not artificially added) choices
+        if (choice_match_results[0][0] === 0) {
             print('This command does not apply to the current context.', 'blue');
             return;
         }
 
         // ambiguous match: more than 2 and > 0
-        if (opt_match_results.length >= 2 &&
-            opt_match_results[0][0] === opt_match_results[1][0]) {
+        if (choice_match_results.length >= 2 &&
+            choice_match_results[0][0] === choice_match_results[1][0]) {
             print('Your command is ambiguous: try to reword it.', 'blue');
             return;
         }
 
         // at this point we have a match
-        matched_opt_idx = opt_match_results[0][1];
+        matched_choice_idx = choice_match_results[0][1];
 
-        opt = sect.options[matched_opt_idx];
-        if (opt.hasOwnProperty('text')) { // regular book option
-            print(sect.options[matched_opt_idx].text);
+        choice = sect.choices[matched_choice_idx];
+        if (choice.hasOwnProperty('text')) { // regular book choice
+            print(sect.choices[matched_choice_idx].text);
             setConfirmMode({
                 yes: function() {
-                    var opt = sect.options[matched_opt_idx];
-                    if (satisfiesOptionRequirements(opt)) {
-                        doSection(opt);
+                    var choice = sect.choices[matched_choice_idx];
+                    if (satisfiesChoiceRequirements(choice)) {
+                        doSection(choice);
                     } else {
                         print('This is not possible.', 'blue');
                         term.set_prompt(cmd_prompt);
                     }
                 },
                 no: function() {
-                    if (sect.hasOwnProperty('alternate_options') &&
-                        sect.alternate_options) {
-                        altern_opt_idx = matched_opt_idx === 0 ? 1 : 0;
-                        print(sect.options[altern_opt_idx].text);
+                    if (sect.hasOwnProperty('alternate_choices') &&
+                        sect.alternate_choices) {
+                        altern_choice_idx = matched_choice_idx === 0 ? 1 : 0;
+                        print(sect.choices[altern_choice_idx].text);
                         setConfirmMode({
                             yes: function() {
-                                doSection(sect.options[altern_opt_idx]);
+                                doSection(sect.choices[altern_choice_idx]);
                             }
                         });
                     } else {
@@ -1285,21 +1285,21 @@ $(document).ready(function($) {
                     }
                 }
             });
-        } else { // artificial/engine option
-            if (opt.hasOwnProperty('item')) {
-                if (opt.item.hasOwnProperty('gold')) {
-                    print('Buy the {0}?'.f(opt.item.name));
+        } else { // artificial/engine choice
+            if (choice.hasOwnProperty('item')) {
+                if (choice.item.hasOwnProperty('gold')) {
+                    print('Buy the {0}?'.f(choice.item.name));
                     setConfirmMode({
                         yes: function() {
-                            if (action_chart.gold >= opt.item.gold) {
-                                var item = opt.item,
-                                ac_sect = opt.item.ac_section;
+                            if (action_chart.gold >= choice.item.gold) {
+                                var item = choice.item,
+                                ac_sect = choice.item.ac_section;
                                 // !!!
                                 if (ac_sect === 'weapons' && action_chart[ac_sect].length === 2) {
                                     print("You are already carrying two weapons (use 'drop' if you really want it).", 'blue');
                                 } else {
                                     action_chart[ac_sect].push(item);
-                                    action_chart.gold -= opt.item.gold;
+                                    action_chart.gold -= choice.item.gold;
                                     print('The {0} was added to the Action Chart.'.f(item.name), 'blue');
                                 }
                             } else {
@@ -1312,11 +1312,11 @@ $(document).ready(function($) {
                         }
                     });
                 } else {
-                    print('Take the {0}?'.f(opt.item.name));
+                    print('Take the {0}?'.f(choice.item.name));
                     setConfirmMode({
                         yes: function() {
-                            var item = opt.item,
-                            ac_sect = opt.item.ac_section;
+                            var item = choice.item,
+                            ac_sect = choice.item.ac_section;
                             if (ac_sect === 'weapons' && action_chart[ac_sect].length === 2) {
                                 print("You are already carrying two weapons (use 'drop' if you really want it).", 'blue');
                             } else {
@@ -1413,12 +1413,12 @@ $(document).ready(function($) {
                 return false;
             }
 
-            if (choice_mode.is_active) {
+            if (option_mode.is_active) {
                 // 0: 48, 9:57, a:65, z:90
-                if (event.which >= choice_mode.range[0] &&
-                    event.which <= choice_mode.range[1]) {
-                    choice_mode.is_active = false;
-                    choice_mode.callback(event.which - choice_mode.range[0]);
+                if (event.which >= option_mode.range[0] &&
+                    event.which <= option_mode.range[1]) {
+                    option_mode.is_active = false;
+                    option_mode.callback(event.which - option_mode.range[0]);
                     term.consumeSingleKeypress(); // FF keypress/keydown bug
                 }
                 return false;
@@ -1428,7 +1428,7 @@ $(document).ready(function($) {
 
         keypress: function(event, term) {
             if (sequence_mode.is_active || confirm_mode.is_active ||
-                choice_mode.is_active || press_key_mode.is_active) {
+                option_mode.is_active || press_key_mode.is_active) {
                 return false;
             }
         },

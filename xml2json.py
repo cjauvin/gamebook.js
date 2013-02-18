@@ -35,7 +35,7 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
 #for sect_elem in root.findall('.//section[@id="sect%s"]' % 27):
     sect_id = sect_elem.find('.//title').text
     sect_paras = []
-    options = []
+    choices = []
     combat = {}
     enemies = []
     rnt_found = False
@@ -82,42 +82,42 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             enemies.append(e)
             sect_paras.append(['%s: COMBAT SKILL %d, ENDURANCE %d' % (e['name'], e['combat_skill'], e['endurance'])])
         elif item.tag == 'choice':
-            opt_sect_id = re.search('idref="sect(\d+)"', s).group(1)
-            options.append({'section': opt_sect_id, 'text': '\n'.join(processPara(s))})
+            choice_sect_id = re.search('idref="sect(\d+)"', s).group(1)
+            choices.append({'section': choice_sect_id, 'text': '\n'.join(processPara(s))})
         else:
             if item.tag == 'illustration':
                 illustration_found = True
     sect_text = '\n\n'.join(['\n'.join(p) for p in sect_paras])
     is_random_pick = False
-    if rnt_found and re.search('\d-\d', options[0]['text']):
+    if rnt_found and re.search('\d-\d', choices[0]['text']):
         is_random_pick = True
-        for opt in options:
-            if re.search('(\d)-(\d)', opt['text']):
-                opt['range'] = [int(s) for s in re.search('(\d)-(\d)', opt['text']).groups()]
+        for choice in choices:
+            if re.search('(\d)-(\d)', choice['text']):
+                choice['range'] = [int(s) for s in re.search('(\d)-(\d)', choice['text']).groups()]
             else:
-                n = int(re.search('(\d)', opt['text']).group(1))
-                opt['range'] = [n, n]
-    elif len(options) > 1:
-        for opt in options:
+                n = int(re.search('(\d)', choice['text']).group(1))
+                choice['range'] = [n, n]
+    elif len(choices) > 1:
+        for choice in choices:
             words = []
-            for w in re.split("[^A-Za-z0-9'-]+", opt['text']): # every nonalpha except "'" and "-"
+            for w in re.split("[^A-Za-z0-9'-]+", choice['text']): # every nonalpha except "'" and "-"
                 w = w.lower()
                 if len(w) < 3 or w in stopwords or re.match('\d+', w): continue
                 words.append(w)
-            opt['words'] = words
+            choice['words'] = words
     if enemies:
         combat['enemies'] = enemies
-        for i, opt in enumerate(options):
-            if 'win' in opt['text']:
-                combat['win'] = {'option': i}
-            elif 'evade' in opt['text']:
-                combat['evasion'] = {'option': i}
-                if re.search('at any time|stage', opt['text']):
+        for i, choice in enumerate(choices):
+            if 'win' in choice['text']:
+                combat['win'] = {'choice': i}
+            elif 'evade' in choice['text']:
+                combat['evasion'] = {'choice': i}
+                if re.search('at any time|stage', choice['text']):
                     combat['evasion']['n_rounds'] = 0
-                elif 'after two rounds' in opt['text']:
+                elif 'after two rounds' in choice['text']:
                     combat['evasion']['n_rounds'] = 2
 
-    section = {'text': sect_text, 'options': options}
+    section = {'text': sect_text, 'choices': choices}
     if combat:
         if undead_found or sommerswerd_found:
             assert len(combat['enemies']) == 1
@@ -125,8 +125,8 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
         if immune_to_mindblast_found:
             assert len(combat['enemies']) == 1
             combat['enemies'][0]['immune'] = "Mindblast"
-        if 'win' not in combat and len(options) == 1:
-            combat['win'] = {'option': 0}
+        if 'win' not in combat and len(choices) == 1:
+            combat['win'] = {'choice': 0}
         section['combat'] = combat
 
     if is_random_pick: section['is_random_pick'] = True
@@ -135,8 +135,8 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
     # merge custom content
     if sect_id in custom['sections']:
         cust_sect = custom['sections'][sect_id]
-        if 'alternate_options' in cust_sect:
-            section['alternate_options'] = True
+        if 'alternate_choices' in cust_sect:
+            section['alternate_choices'] = True
         if 'is_special' in cust_sect:
             section['is_special'] = True
         if 'items' in cust_sect:
@@ -145,12 +145,12 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             section['endurance'] = cust_sect['endurance']
         if 'combat' in cust_sect:
             section['combat'].update(cust_sect['combat'])
-        for custom_opt in custom['sections'][sect_id].get('options', []):
-            # no key to match here, so we got to match using opt.section (thus the need to search)
-            #print custom_opt['section']
-            for opt in section['options']:
-                if opt.get('section') == custom_opt['section']:
-                    opt.update(custom_opt)
+        for custom_choice in custom['sections'][sect_id].get('choices', []):
+            # no key to match here, so we got to match using choice.section (thus the need to search)
+            #print custom_choice['section']
+            for choice in section['choices']:
+                if choice.get('section') == custom_choice['section']:
+                    choice.update(custom_choice)
                     break
 
     sections[sect_id] = section
@@ -186,10 +186,10 @@ while not q.empty():
     to_set.append(sect_id)
     section_od[sect_id] = sections[sect_id]
 #    if sect_id == '197': continue
-    for opt in sections[sect_id]['options']:
-        if opt['section'] not in visited:
-            q.put(opt['section'])
-            visited.add(opt['section'])
+    for choice in sections[sect_id]['choices']:
+        if choice['section'] not in visited:
+            q.put(choice['section'])
+            visited.add(choice['section'])
 
 result_od = OrderedDict()
 setup_od = OrderedDict()
