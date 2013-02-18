@@ -43,6 +43,7 @@ $(document).ready(function($) {
     synonyms = {},
     prev_section,
     curr_section = '1',
+    visited_sections = [curr_section],
     autocompletion_enabled = true,
     // sequence parts
     sequence_mode = {is_active: false,
@@ -297,21 +298,52 @@ $(document).ready(function($) {
 
     satisfiesOptionRequirements = function(opt) {
         var ok = true;
-        if (opt.hasOwnProperty('requirements')) {
-            $.each(opt.requirements, function(i, req) {
-                if (typeof req.value === 'string') {
-                    if (!isInArray(req.value, action_chart[req.type])) {
-                        ok = false;
-                        return false;
-                    }
-                } else if (typeof req.value === 'boolean') {
-                    if (action_chart[req.type].length === 0) {
-                        ok = false;
-                        return false;
-                    }
+        $.each(Object.keys(opt.requires || []), function(j, key) {
+            var value = opt.requires[key];
+            if (key === 'has_visited') {
+                if (!isInArray(value, visited_sections)) {
+                    ok = false;
+                    return false;
                 }
-            });
-        }
+            } else {
+                // keys should correspond to ac sections
+                switch (typeof value) {
+                case 'string':
+                    // test inclusion
+                    if (!isInArray(value, action_chart[key]) && !isInArray(value, getNames(action_chart[key]))) {
+                        ok = false;
+                        return false;
+                    }
+                    break;
+                case 'boolean':
+                    // if array: test empty
+                    if ($.isArray(action_chart[key])) {
+                        // if value is true, what will make the condition false
+                        if (value ? action_chart[key].length === 0 : action_chart[key].length > 0) {
+                            ok = false;
+                            return false;
+                        }
+                        // else: test falsy
+                    } else {
+                        if (value ? !action_chart[key] : action_chart[key]) {
+                            ok = false;
+                            return false;
+                        }
+                    }
+                    break;
+                case 'number':
+                    // interpreted as minimum
+                    if (action_chart[key] < value) {
+                        ok = false;
+                        return false;
+                    }
+                    break;
+                default:
+                    print('Error: requirement not defined for type {0}.'.f(typeof value), 'blue');
+                    break;
+                };
+            }
+        });
         return ok;
     },
 
@@ -336,7 +368,7 @@ $(document).ready(function($) {
         term.set_autocomplete_words(autocomplete_words);
     },
 
-    doCombatSpecial = function(enemy, round) {
+    doSpecialCombat = function(enemy, round) {
 
         var sect = data.sections[curr_section];
 
@@ -363,7 +395,7 @@ $(document).ready(function($) {
                     win_opt = sect.options[sect.combat.win.option];
                     print('({0})'.f(win_opt.text));
                     setPressKeyMode(function() {
-                        doSection(win_opt.section);
+                        doSection(win_opt);
                     });
                     return false;
                 }
@@ -397,19 +429,19 @@ $(document).ready(function($) {
                         evasion_opt = sect.options[sect.combat.evasion.option];
                         print('({0})'.f(evasion_opt.text));
                         setPressKeyMode(function() {
-                            doSection(evasion_opt.section);
+                            doSection(evasion_opt);
                         });
                     },
                     no: function() {
                         if (doCombatRound()) {
-                            doCombatSpecial(enemy, round + 1);
+                            doSpecialCombat(enemy, round + 1);
                         }
                     }
                 });
             } else {
                 setPressKeyMode(function() {
                     if (doCombatRound()) {
-                        doCombatSpecial(enemy, round + 1);
+                        doSpecialCombat(enemy, round + 1);
                     }
                 });
             }
@@ -438,7 +470,7 @@ $(document).ready(function($) {
                     win_opt = sect.options[sect.combat.win.option];
                     print('({0})'.f(win_opt.text));
                     setPressKeyMode(function() {
-                        doSection(win_opt.section);
+                        doSection(win_opt);
                     });
                     return false;
                 }
@@ -465,19 +497,19 @@ $(document).ready(function($) {
                         evasion_opt = sect.options[sect.combat.evasion.option];
                         print('({0})'.f(evasion_opt.text));
                         setPressKeyMode(function() {
-                            doSection(evasion_opt.section);
+                            doSection(evasion_opt);
                         });
                     },
                     no: function() {
                         if (doCombatRound()) {
-                            doCombatSpecial(enemy, round + 1);
+                            doSpecialCombat(enemy, round + 1);
                         }
                     }
                 });
             } else {
                 setPressKeyMode(function() {
                     if (doCombatRound()) {
-                        doCombatSpecial(enemy, round + 1);
+                        doSpecialCombat(enemy, round + 1);
                     }
                 });
             }
@@ -511,7 +543,7 @@ $(document).ready(function($) {
                 win_opt = sect.options[sect.combat.win.option];
                 print('({0})'.f(win_opt.text));
                 setPressKeyMode(function() {
-                    doSection(win_opt.section);
+                    doSection(win_opt);
                 });
                 return false;
             }
@@ -538,7 +570,7 @@ $(document).ready(function($) {
                     evasion_opt = sect.options[sect.combat.evasion.option];
                     print('({0})'.f(evasion_opt.text));
                     setPressKeyMode(function() {
-                        doSection(evasion_opt.section);
+                        doSection(evasion_opt);
                     });
                 },
                 no: function() {
@@ -570,7 +602,7 @@ $(document).ready(function($) {
                 setConfirmMode({
                     prompt: '[[;#000;#ff0][continue y/n]]',
                     yes: function() {
-                        doSection(sect.options[0].section);
+                        doSection(sect.options[0]);
                     },
                     no: function() {
                         term.set_prompt(cmd_prompt);
@@ -655,7 +687,7 @@ $(document).ready(function($) {
                         setConfirmMode({
                             prompt: '[[;#000;#ff0][continue y/n]]',
                             yes: function() {
-                                doSection(opt.section);
+                                doSection(opt);
                             },
                             no: function() {
                                 // remove all options other than the picked one
@@ -673,14 +705,39 @@ $(document).ready(function($) {
         };
     },
 
-    doSection = function(next_section) {
+    doSpecialOption = function(option) {
+        switch (option.section) {
+        case '142':
+            action_chart.special_items.push({name: 'White Pass', ac_section: 'special_items', undroppable: true});
+            action_chart.gold -= 10;
+            print('Your Action Chart was updated.', 'blue');
+            break;
+        default:
+            print('Error: special option for section {0} is not implemented.'.f(curr_section), 'blue');
+        };
+    },
+
+    doSection = function(option) {
         if (!data.sections.hasOwnProperty(curr_section)) {
             print('Error: section {0} is not implemented.'.f(curr_section), 'blue');
             return;
         }
-        if (next_section !== undefined) {
+        if (option !== undefined) {
             prev_section = curr_section;
-            curr_section = next_section;
+            curr_section = option.section;
+            // sometimes options have a stat modifier
+            if (option.hasOwnProperty('endurance')) {
+                updateEndurance(option.endurance);
+                if (option.endurance < 0) {
+                    print('You lost ENDURANCE.', 'blue');
+                } else {
+                    print('You gained ENDURANCE.', 'blue');
+                }
+            }
+            visited_sections.push(curr_section);
+            if (option.hasOwnProperty('is_special')) {
+                doSpecialOption(option);
+            }
         }
         var sect = data.sections[curr_section];
         if (data.sections[prev_section].hasOwnProperty('must_eat') && data.sections[prev_section].must_eat) {
@@ -716,7 +773,7 @@ $(document).ready(function($) {
         if (sect.hasOwnProperty('combat')) {
             $.each(sect.combat.enemies, function(i, enemy) {
                 if (sect.combat.hasOwnProperty('is_special')) {
-                    doCombatSpecial(enemy, 0);
+                    doSpecialCombat(enemy, 0);
                 } else {
                     doCombat(enemy, 0);
                 }
@@ -750,7 +807,7 @@ $(document).ready(function($) {
                         setConfirmMode({
                             prompt: '[[;#000;#ff0][continue y/n]]',
                             yes: function() {
-                                doSection(opt.section);
+                                doSection(opt);
                             },
                             no: function() {
                                 // remove all options other than the picked one
@@ -766,7 +823,7 @@ $(document).ready(function($) {
             setConfirmMode({
                 prompt: '[[;#000;#ff0][continue y/n]]',
                 yes: function() {
-                    doSection(sect.options[0].section);
+                    doSection(sect.options[0]);
                 }
             });
         } else if (sect.options.length === 0) {
@@ -786,7 +843,7 @@ $(document).ready(function($) {
                     print(opt.text);
                     setConfirmMode({
                         yes: function() {
-                            doSection(opt.section);
+                            doSection(opt);
                         }
                     });
                     auto_found = true;
@@ -1025,7 +1082,7 @@ $(document).ready(function($) {
 
         if (command === 'continue') {
             if (sect.options.length === 1) {
-                doSection(sect.options[0].section);
+                doSection(sect.options[0]);
                 return;
             }
         }
@@ -1096,7 +1153,7 @@ $(document).ready(function($) {
             $.each(sect.options, function(i, opt) {
                 if (opt.section === section_input[0]) {
                     if (satisfiesOptionRequirements(opt)) {
-                        doSection(opt.section);
+                        doSection(opt);
                         valid_section_input_found = true;
                     }
                 }
@@ -1207,7 +1264,7 @@ $(document).ready(function($) {
                 yes: function() {
                     var opt = sect.options[matched_opt_idx];
                     if (satisfiesOptionRequirements(opt)) {
-                        doSection(opt.section);
+                        doSection(opt);
                     } else {
                         print('This is not possible.', 'blue');
                         term.set_prompt(cmd_prompt);
@@ -1220,7 +1277,7 @@ $(document).ready(function($) {
                         print(sect.options[altern_opt_idx].text);
                         setConfirmMode({
                             yes: function() {
-                                doSection(sect.options[altern_opt_idx].section);
+                                doSection(sect.options[altern_opt_idx]);
                             }
                         });
                     } else {
@@ -1403,15 +1460,14 @@ $(document).ready(function($) {
                     action_chart.combat_skill = 10;
                     action_chart.endurance.initial = 20;
                     action_chart.endurance.current = 18;
-                    action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Mindshield'];
+                    action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Sixth Sense'];
                     action_chart.weaponskill = 'Broadsword';
                     action_chart.weapons = [{name: 'Sword',ac_section:'weapons'}, {name: 'Short Sword', ac_section: 'weapons'}];
                     action_chart.backpack_items.push(data.setup.equipment[5]); // healing potion
                     action_chart.special_items.push(data.setup.equipment[3]); // chainmail
-                    action_chart.gold = 11;
+                    action_chart.gold = 10;
                     action_chart.meals = 2;
-                    doSection(location.search.match(/sect=(\d+)/) ? location.search.match(/sect=(\d+)/)[1] : '1');
-
+                    doSection({section:location.search.match(/sect=(\d+)/) ? location.search.match(/sect=(\d+)/)[1] : '1'});
                 } else {
                     initSequenceMode(engine_intro, 'engine_intro');
                 }

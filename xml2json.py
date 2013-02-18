@@ -150,14 +150,7 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             #print custom_opt['section']
             for opt in section['options']:
                 if opt.get('section') == custom_opt['section']:
-                    if 'words' in custom_opt:
-                        opt['words'] = custom_opt['words']
-                    if 'requirements' in custom_opt:
-                        opt['requirements'] = custom_opt['requirements']
-                    if 'auto' in custom_opt:
-                        opt['auto'] = True
-                    if 'text' in custom_opt:
-                        opt['text'] = custom_opt['text']
+                    opt.update(custom_opt)
                     break
 
     sections[sect_id] = section
@@ -176,8 +169,8 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
 #        report.append('illustration')
     # if must_eat:
     #     report.append('must eat')
-    # if list_found:
-    #     report.append('list')
+    if list_found:
+        report.append('list')
     if report and sect_id not in custom['sections']: #True:
         print '%s: %s' % (sect_id, ', '.join(report))
 
