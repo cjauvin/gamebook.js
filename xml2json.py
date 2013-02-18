@@ -32,7 +32,7 @@ for w in ['turn', 'wish']:
     stopwords.add(w)
 
 for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
-#for sect_elem in root.findall('.//section[@id="sect%s"]' % 27):
+#for sect_elem in root.findall('.//section[@id="sect%s"]' % 91):
     sect_id = sect_elem.find('.//title').text
     sect_paras = []
     choices = []
@@ -74,6 +74,8 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
         if item.tag == 'p':
             sect_paras.append(processPara(s))
         if item.tag == 'ul':
+            for i, li in enumerate(item):
+                sect_paras.append(['(%s) %s' % (i, li.text)])
             list_found = True
         elif item.tag == 'combat':
             e = {'name': item.find('.//enemy').text,
@@ -145,6 +147,8 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             section['endurance'] = cust_sect['endurance']
         if 'combat' in cust_sect:
             section['combat'].update(cust_sect['combat'])
+        if 'options' in cust_sect:
+            section['options'] = cust_sect['options']
         for custom_choice in custom['sections'][sect_id].get('choices', []):
             # no key to match here, so we got to match using choice.section (thus the need to search)
             #print custom_choice['section']

@@ -35,10 +35,20 @@ $(document).ready(function($) {
         return $.inArray(elem, arr) > -1;
     },
 
+    // only first matching item
+    removeByName = function(name, arr) {
+        $.each(arr, function(i, item) {
+            if (item.name === name) {
+                arr.remove(item);
+                return false;
+            }
+        });
+    },
+
     // uses jsonp to avoid XSS issues
     //gamebook_url = '//projectaon.org/staff/christian/gamebook.js/fotw.php?callback=?',
     gamebook_url = 'fotw_generated.json',
-    debug = false,
+    debug = true,
     data,
     synonyms = {},
     prev_section,
@@ -97,8 +107,9 @@ $(document).ready(function($) {
         weaponskill: '',
         weapons: [],
         gold: 0,
-        meals: 0,
+        //meals: 0,
         backpack_items: [],
+        has_backpack: true,
         special_items: [{name: 'Map', ac_section: 'special_items'},
                         {name: 'Seal of Hammerdal', ac_section: 'special_items'}]
     },
@@ -797,6 +808,11 @@ $(document).ready(function($) {
                 // else: it must dealt with a command (see (*))
             });
         }
+        if (sect.hasOwnProperty('options')) {
+            setOptionMode({
+            });
+            return;
+        }
         if (sect.hasOwnProperty('is_random_pick')) {
             setPressKeyMode(function() {
                 var r = pickRandomNumber();
@@ -884,7 +900,7 @@ $(document).ready(function($) {
         term.echo('Kai Disciplines: ' + kds.join(', '));
         term.echo('Weapons        : ' + getNames(action_chart.weapons).join(', '));
         term.echo('Gold Crowns    : ' + action_chart.gold);
-        term.echo('Meals          : ' + action_chart.meals);
+        //term.echo('Meals          : ' + action_chart.meals);
         term.echo('Backpack Items : ' + getNames(action_chart.backpack_items).join(', '));
         term.echo('Special Items  : ' + getNames(action_chart.special_items).join(', ') + '\n\n');
     },
@@ -963,18 +979,21 @@ $(document).ready(function($) {
                 range: [48, 57],
                 prompt: '[[;#000;#ff0][choose an item]] (' + (2 - setup_equipment_tmp.length) + ' left)',
                 callback: function(i) {
-                    var item = data.setup.equipment[i];
-                    if (!isInArray(item.name, setup_equipment_tmp)) {
-                        if (item.hasOwnProperty('value')) {
-                            action_chart[item.ac_section] += item.value;
+                    var item = data.setup.equipment[i],
+                    item_name = $.isArray(item) ? 'Two Meals' : item.name;
+                    if (!isInArray(item_name, setup_equipment_tmp)) {
+                        if ($.isArray(item)) { // meals
+                            $.each(item, function(i, subitem) {
+                                action_chart[subitem.ac_section].push(subitem);
+                            });
                         } else {
                             action_chart[item.ac_section].push(item);
                         }
                         if (item.name === 'Chainmail Waistcoat') {
                             action_chart.endurance.current += 4;
                         }
-                        setup_equipment_tmp.push(item.name);
-                        print(item.name, 'blue');
+                        setup_equipment_tmp.push(item_name);
+                        print(item_name, 'blue');
                     }
                     if (setup_equipment_tmp.length === 2) {
                         sequence_mode.is_active = true;
@@ -1137,12 +1156,12 @@ $(document).ready(function($) {
             if (!sect.hasOwnProperty('must_eat')) {
                 print('You are not hungry enough to eat.', 'blue');
             } else {
-                if (action_chart.meals === 0) {
+                if (!isInArray('Meal', getNames(action_chart.backpack_items))) {
                     print('You have no Meal left.', 'blue');
                 } else {
-                    action_chart.meals -= 1;
+                    removeByName('Meal', action_chart.backpack_items);
                     data.sections[curr_section].must_eat = false;
-                    print('You eat a Meal ({0} left).'.f(action_chart.meals), 'blue');
+                    print('You eat a Meal.', 'blue');
                 }
             }
             return;
@@ -1464,9 +1483,10 @@ $(document).ready(function($) {
                     action_chart.weaponskill = 'Broadsword';
                     action_chart.weapons = [{name: 'Sword',ac_section:'weapons'}, {name: 'Short Sword', ac_section: 'weapons'}];
                     action_chart.backpack_items.push(data.setup.equipment[5]); // healing potion
+                    action_chart.backpack_items.push({name: 'Meal', ac_section: 'backpack_items'})
                     action_chart.special_items.push(data.setup.equipment[3]); // chainmail
                     action_chart.gold = 10;
-                    action_chart.meals = 2;
+                    //action_chart.meals = 2;
                     doSection({section:location.search.match(/sect=(\d+)/) ? location.search.match(/sect=(\d+)/)[1] : '1'});
                 } else {
                     initSequenceMode(engine_intro, 'engine_intro');
