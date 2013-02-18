@@ -18,6 +18,7 @@ def processPara(para):
     para = para.replace('<ch.thinspace/>', "")
     para = re.sub('</?quote/?>', "\"", para)
     para = re.sub('</?onomatopoeia>', '', para)
+    para = re.sub('<footref.*?/>', '', para)
     return textwrap.wrap(para, 80)
 
 sections = OrderedDict()
@@ -31,7 +32,7 @@ for w in ['turn', 'wish']:
     stopwords.add(w)
 
 for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
-#for sect_elem in root.findall('.//section[@id="sect%s"]' % 5):
+#for sect_elem in root.findall('.//section[@id="sect%s"]' % 27):
     sect_id = sect_elem.find('.//title').text
     sect_paras = []
     options = []
@@ -46,30 +47,34 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
     illustration_found = False
     must_eat = False
     list_found = False
+    footref_found = False
     for item in sect_elem.find('data'):
         s = etree.tostring(item).strip()
+        for subitem in item:
+            if subitem.tag == 'footref':
+                footref_found = True
+        if '<a idref="random">Random Number Table</a>' in s:
+            rnt_found = True
+            s = s.replace('<a idref="random">Random Number Table</a>', 'Random Number Table')
+        for a in ['COMBAT SKILL', 'ENDURANCE']:
+            if '<typ class="attribute">%s</typ>' % a in s:
+                s = s.replace('<typ class="attribute">%s</typ>' % a, a)
+                stats_found = True
+        if '<a idref=\"action\">Action Chart</a>' in s:
+            ac_found = True
+            s = s.replace('<a idref=\"action\">Action Chart</a>', 'Action Chart')
+        if 'undead' in s.lower():
+            undead_found = True
+        if 'sommerswerd' in s.lower():
+            sommerswerd_found = True
+        if 'immune' in s.lower() and 'mindblast' in s.lower():
+            immune_to_mindblast_found = True
+        if 'Meal' in s and 'must' in s:
+            must_eat = True
+        if item.tag == 'p':
+            sect_paras.append(processPara(s))
         if item.tag == 'ul':
             list_found = True
-        if item.tag == 'p':
-            if '<a idref="random">Random Number Table</a>' in s:
-                rnt_found = True
-                s = s.replace('<a idref="random">Random Number Table</a>', 'Random Number Table')
-            for a in ['COMBAT SKILL', 'ENDURANCE']:
-                if '<typ class="attribute">%s</typ>' % a in s:
-                    s = s.replace('<typ class="attribute">%s</typ>' % a, a)
-                    stats_found = True
-            if '<a idref=\"action\">Action Chart</a>' in s:
-                ac_found = True
-                s = s.replace('<a idref=\"action\">Action Chart</a>', 'Action Chart')
-            if 'undead' in s.lower():
-                undead_found = True
-            if 'sommerswerd' in s.lower():
-                sommerswerd_found = True
-            if 'immune' in s.lower() and 'mindblast' in s.lower():
-                immune_to_mindblast_found = True
-            if 'Meal' in s and 'must' in s:
-                must_eat = True
-            sect_paras.append(processPara(s))
         elif item.tag == 'combat':
             e = {'name': item.find('.//enemy').text,
                  'combat_skill': int(item.find('..//enemy-attribute[@class="combatskill"]').text),
@@ -165,6 +170,8 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
         report.append('rnt')
     if stats_found:
         report.append('stats')
+    if footref_found:
+        report.append('footref')
 #    if illustration_found:
 #        report.append('illustration')
     # if must_eat:
@@ -173,6 +180,8 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
     #     report.append('list')
     if report and sect_id not in custom['sections']: #True:
         print '%s: %s' % (sect_id, ', '.join(report))
+
+#exit()
 
 q = Queue()
 visited = set()

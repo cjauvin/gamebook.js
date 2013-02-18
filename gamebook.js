@@ -218,7 +218,14 @@ $(document).ready(function($) {
         str = '{0}'.f(ac.combat_skill),
         val = ac.combat_skill,
         enemy = enemy ? enemy : {};
-        if (isInArray('Weaponskill', ac.kai_disciplines) && isInArray(ac.weaponskill, ac.weapons)) {
+        if (isInArray('Sommerswerd', getNames(ac.weapons))) {
+            str += ' + 8(SW)';
+            val += 8;
+        }
+        var sommerswerd_ws = isInArray('Sommerswerd', getNames(ac.weapons)) &&
+            isInArray(ac.weaponskill, ['Sword', 'Short Sword', 'Broadsword']);
+        if (isInArray('Weaponskill', ac.kai_disciplines) &&
+            (isInArray(ac.weaponskill, ac.weapons) || sommerswerd_ws)) {
             str += ' + 2(WS)';
             val += 2;
         }
@@ -720,6 +727,13 @@ $(document).ready(function($) {
             $.each(sect.items, function(i, item) {
                 // if auto mode, the item is added automatically
                 if (item.hasOwnProperty('auto')) {
+                    // here it would be nicer to ask the player which weapon he wants to drop..
+                    // but for now we pick the first one (assuming the new one is the Sommerswerd)
+                    if (item.ac_section === 'weapons' && action_chart.weapons.length === 2) {
+                        var it0 = action_chart.weapons[0];
+                        action_chart.weapons.remove(it0);
+                        print('To make room, your {0} had to be dropped.'.f(it0.name), 'blue');
+                    }
                     action_chart[item.ac_section].push(item);
                     print('The {0} was added to your Action Chart.'.f(item.name), 'blue');
                 }
@@ -1023,8 +1037,13 @@ $(document).ready(function($) {
                 print('Drop the {0} from your inventory?'.f(item.name), 'blue');
                 setConfirmMode({
                     yes: function() {
-                        action_chart[item.ac_section].remove(item);
-                        updateEndurance();
+                        if (item.hasOwnProperty('undroppable')) {
+                            print('You must keep this item.', 'blue');
+                        } else {
+                            action_chart[item.ac_section].remove(item);
+                            updateEndurance();
+                            print('The item has been removed from your inventory.', 'blue');
+                        }
                         term.set_prompt(cmd_prompt);
                     }
                 });
@@ -1385,7 +1404,7 @@ $(document).ready(function($) {
                     action_chart.endurance.initial = 20;
                     action_chart.endurance.current = 18;
                     action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Mindshield'];
-                    action_chart.weaponskill = 'Sword';
+                    action_chart.weaponskill = 'Broadsword';
                     action_chart.weapons = [{name: 'Sword',ac_section:'weapons'}, {name: 'Short Sword', ac_section: 'weapons'}];
                     action_chart.backpack_items.push(data.setup.equipment[5]); // healing potion
                     action_chart.special_items.push(data.setup.equipment[3]); // chainmail
