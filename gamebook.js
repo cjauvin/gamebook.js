@@ -75,6 +75,7 @@ $(document).ready(function($) {
                    callback: $.noop,
                    accumulator: []},
     term,
+    command,
     cmd_prompt,
     help_str =
         "Apart from the textual play commands, you can also use:\n\n" +
@@ -84,7 +85,7 @@ $(document).ready(function($) {
         "'continue'   : if the current section has only one choice, go to the next\n" +
         "'123'        : go to section 123 (if possible from current section)\n" +
         "'hint'       : show a random word from the choices of the current section\n" +
-        "'choices'    : reveal the set of choices for the current section\n" +
+        "'choices'    : (or 'cheat') reveal the set of choices for the current section\n" +
         "'auto'       : toggle word autocompletion on/off\n" +
         "'again'      : reprint the current section\n" +
         "'restart'    : restart the game (including setup)\n" +
@@ -140,6 +141,7 @@ $(document).ready(function($) {
         'red': '#f00', 'blue': '#0f60ff', 'yellow': '#ff0'
     },
 
+    //------------------------------------------------------------------------------------------------------------
     print = function(str, color_name) {
         if (color_name === undefined) {
             term.echo(str);
@@ -149,14 +151,17 @@ $(document).ready(function($) {
         term.echo('\n');
     },
 
+    //------------------------------------------------------------------------------------------------------------
     printSectionNumber = function(si) {
         print('{0}({1})'.f(new Array(38).join(' '), si), 'yellow');
     },
 
+    //------------------------------------------------------------------------------------------------------------
     getNames = function(items) {
         return $.map(items, function (i) { return i.name; });
     },
 
+    //------------------------------------------------------------------------------------------------------------
     // taken from: http://rosettacode.org/wiki/Levenshtein_distance#JavaScript
     levenshteinDist = function(str1, str2) {
         var m = str1.length,
@@ -176,6 +181,7 @@ $(document).ready(function($) {
         return d[m][n];
     },
 
+    //------------------------------------------------------------------------------------------------------------
     // http://gotochriswest.com/blog/2011/05/02/cartesian-product-of-multiple-arrays/
     cartesianProduct = function(arr) {
         return Array.prototype.reduce.call(arr, function(a, b) {
@@ -189,6 +195,7 @@ $(document).ready(function($) {
         }, [[]]);
     },
 
+    //------------------------------------------------------------------------------------------------------------
     zeros = function(n) {
         var a = [];
         while (--n >= 0) {
@@ -197,11 +204,13 @@ $(document).ready(function($) {
         return a;
     },
 
+    //------------------------------------------------------------------------------------------------------------
     // 0--9 inc
     pickRandomNumber = function() {
         return Math.floor(Math.random() * 10);
     },
 
+    //------------------------------------------------------------------------------------------------------------
     setConfirmMode = function(conf) {
         confirm_mode.is_active = true;
         term.set_prompt(conf.hasOwnProperty('prompt') ? conf.prompt : confirm_mode.prompt);
@@ -212,12 +221,14 @@ $(document).ready(function($) {
         confirm_mode.no_callback = conf.hasOwnProperty('no') ? conf.no : noop;
     },
 
+    //------------------------------------------------------------------------------------------------------------
     setPressKeyMode = function(callback) {
         press_key_mode.is_active = true;
         term.set_prompt(press_key_mode.prompt);
         press_key_mode.callback = callback;
     },
 
+    //------------------------------------------------------------------------------------------------------------
     setOptionMode = function(conf) {
         option_mode.is_active = true;
         term.set_prompt(conf.hasOwnProperty('prompt') ? conf.prompt : option_mode.prompt);
@@ -225,6 +236,7 @@ $(document).ready(function($) {
         option_mode.callback = conf.callback;
     },
 
+    //------------------------------------------------------------------------------------------------------------
     calculateCombatSkill = function(enemy) {
         var ac = action_chart,
         str = '{0}'.f(ac.combat_skill),
@@ -260,6 +272,7 @@ $(document).ready(function($) {
         return { str: str, val: val };
     },
 
+    //------------------------------------------------------------------------------------------------------------
     calculateEndurance = function () {
         var ac = action_chart,
         str = '{0}'.f(ac.endurance.initial),
@@ -274,6 +287,7 @@ $(document).ready(function($) {
         return { str: str, val: val };
     },
 
+    //------------------------------------------------------------------------------------------------------------
     updateEndurance = function(val) {
         if (val === undefined) {
             // make sure current is not > full (can happen for instance if chainmail is dropped)
@@ -284,6 +298,7 @@ $(document).ready(function($) {
         return isStillAlive();
     },
 
+    //------------------------------------------------------------------------------------------------------------
     restart = function() {
         // needed to restore certain modifs made to the game data structure
         $.getJSON(gamebook_url, function(_data) {
@@ -295,6 +310,7 @@ $(document).ready(function($) {
         });
     },
 
+    //------------------------------------------------------------------------------------------------------------
     isStillAlive = function() {
         if (action_chart.endurance.current <= 0) {
             confirm_mode.is_active = false;
@@ -308,6 +324,7 @@ $(document).ready(function($) {
         return true;
     },
 
+    //------------------------------------------------------------------------------------------------------------
     addItem = function(item, drop_offer_type) { // offer_drop_mode: none, optional, force
         // meals can be sold in packs (of more than one)
         var item0 = $.isArray(item) ? item[0] : item;
@@ -384,6 +401,25 @@ $(document).ready(function($) {
         return true;
     },
 
+    //------------------------------------------------------------------------------------------------------------
+    matchItem = function(input_str, ac_sections) {
+        var closest = {lev: Number.POSITIVE_INFINITY, item: null};
+        $.each(ac_sections || ['weapons', 'backpack_items', 'special_items'], function(i, ac_section) {
+            $.each(action_chart[ac_section], function(j, item) {
+                var item_name_words = item.name.split(/[^A-Za-z0-9']+/).concat(item.name);
+                $.each(item_name_words, function(k, inw) {
+                    var lev = levenshteinDist(input_str, inw.toLowerCase());
+                    //console.log(iw, lev);
+                    if (lev < 3 && lev < closest.lev) {
+                        closest = {lev: lev, item: item};
+                    }
+                });
+            });
+        });
+        return closest.item;
+    },
+
+    //------------------------------------------------------------------------------------------------------------
     satisfiesChoiceRequirements = function(choice) {
         var ok = true;
         $.each(Object.keys(choice.requires || []), function(j, key) {
@@ -435,6 +471,7 @@ $(document).ready(function($) {
         return ok;
     },
 
+    //------------------------------------------------------------------------------------------------------------
     setAutocompletionWords = function(sect) {
         var autocomplete_words = [];
         if (autocompletion_enabled) {
@@ -455,10 +492,9 @@ $(document).ready(function($) {
         term.set_autocomplete_words(autocomplete_words);
     },
 
+    //------------------------------------------------------------------------------------------------------------
     doSpecialCombat = function(enemy, round) {
-
         var sect = data.sections[curr_section];
-
         switch (curr_section) {
 
         case '7':
@@ -607,6 +643,7 @@ $(document).ready(function($) {
         };
     },
 
+    //------------------------------------------------------------------------------------------------------------
     doCombat = function(enemy, round) {
         var sect = data.sections[curr_section],
         evasion_choice,
@@ -675,6 +712,7 @@ $(document).ready(function($) {
         }
     },
 
+    //------------------------------------------------------------------------------------------------------------
     doSpecialSection = function() {
         var sect = data.sections[curr_section];
         switch (curr_section) {
@@ -792,18 +830,39 @@ $(document).ready(function($) {
         };
     },
 
+    //------------------------------------------------------------------------------------------------------------
     doSpecialChoice = function(choice) {
         switch (choice.section) {
+
+        case '137': // section 93
+            var m = command.match(/\d+/);
+            if (m) {
+                print('Give {0} Gold Crowns to the beggars?'.f(m[0]), 'blue');
+                setConfirmMode({
+                    yes: function() {
+                        action_chart.gold -= Math.min(parseInt(m[0]), action_chart.gold);
+                        print('You have {0} Gold Crowns remaining.'.f(action_chart.gold));
+                        term.set_prompt(cmd_prompt);
+                    }
+                });
+                return;
+            } else {
+                print('This command does not apply to the current context.', 'blue');
+            }
+            break;
+
         case '142':
             action_chart.special_items.push({name: 'White Pass', ac_section: 'special_items', undroppable: true});
             action_chart.gold -= 10;
             print('Your Action Chart was updated.', 'blue');
             break;
+
         default:
             print('Error: special choice for section {0} is not implemented.'.f(curr_section), 'blue');
         };
     },
 
+    //------------------------------------------------------------------------------------------------------------
     doSection = function(choice) {
 
         if (!data.sections.hasOwnProperty(curr_section)) {
@@ -814,7 +873,7 @@ $(document).ready(function($) {
         if (choice !== undefined) {
             prev_section = curr_section;
             curr_section = choice.section;
-            // sometimes choices have a stat modifier
+            // some choices have a stat modifier
             if (choice.hasOwnProperty('endurance')) {
                 updateEndurance(choice.endurance);
                 if (choice.endurance < 0) {
@@ -830,7 +889,6 @@ $(document).ready(function($) {
         }
 
         var sect = data.sections[curr_section];
-        //if (!isStillAlive()) { return; }
 
         setAutocompletionWords(sect);
 
@@ -893,12 +951,13 @@ $(document).ready(function($) {
                     }
                     print('The {0} was added to your Action Chart.'.f(item.name), 'blue');
                 }
-                // else: it must dealt with a command (see (*))
+                // else: must be dealt with a text command (see (*))
             });
             if (wait_for_add_item) {
                 return;
             }
         }
+
         if (sect.hasOwnProperty('options')) {
             var items = sect.options.items;
             if (choice !== undefined) {
@@ -930,6 +989,7 @@ $(document).ready(function($) {
             });
             return;
         }
+
         if (sect.hasOwnProperty('is_random_pick')) {
             setPressKeyMode(function() {
                 var r = pickRandomNumber();
@@ -951,6 +1011,7 @@ $(document).ready(function($) {
                     }
                 });
             });
+
         } else if (sect.choices.length === 1) {
             print(sect.choices[0].text);
             setConfirmMode({
@@ -990,6 +1051,7 @@ $(document).ready(function($) {
         }
     },
 
+    //------------------------------------------------------------------------------------------------------------
     initSequenceMode = function(seq, which) {
         sequence_mode.is_active = true;
         sequence_mode.seq = seq;
@@ -1006,6 +1068,7 @@ $(document).ready(function($) {
         sequence_mode.seq_idx = 1;
     },
 
+    //------------------------------------------------------------------------------------------------------------
     printActionChart = function() {
         term.echo('COMBAT SKILL   : {0}'.f(calculateCombatSkill().str));
         term.echo('ENDURANCE      : {0} / {1}'.f(action_chart.endurance.current, calculateEndurance().str));
@@ -1022,6 +1085,7 @@ $(document).ready(function($) {
         term.echo('Special Items  : ' + getNames(action_chart.special_items).join(', ') + '\n\n');
     },
 
+    //------------------------------------------------------------------------------------------------------------
     doSetupSequence = function() {
         // stats
         if (sequence_mode.seq_idx === 1) {
@@ -1125,37 +1189,20 @@ $(document).ready(function($) {
         } else if (sequence_mode.seq_idx === 16) {
             print(stars, 'yellow');
         }
-    },
-
-    matchACItem = function(input_str, ac_sections) {
-        var closest = {lev: Number.POSITIVE_INFINITY, item: null};
-        $.each(ac_sections || ['weapons', 'backpack_items', 'special_items'], function(i, ac_section) {
-            $.each(action_chart[ac_section], function(j, item) {
-                var item_name_words = item.name.split(/[^A-Za-z0-9']+/).concat(item.name);
-                $.each(item_name_words, function(k, inw) {
-                    var lev = levenshteinDist(input_str, inw.toLowerCase());
-                    //console.log(iw, lev);
-                    if (lev < 3 && lev < closest.lev) {
-                        closest = {lev: lev, item: item};
-                    }
-                });
-            });
-        });
-        return closest.item;
     };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
     // parser
-    $('body').terminal(function(command, term) {
+    $('body').terminal(function(_command, term) {
 
-        command = command.trim().toLowerCase();
+        command = _command.trim().toLowerCase();
         if (!command) { return; }
 
         var choice_match_results = [], // list of [n_choice_matches, choice idx]'s, one for every choice, to be sorted
         input_tokens = command.split(/[^A-Za-z0-9'-]+/), // every nonalpha except "'" and "-"
-        section_input = command.match(/\d+/),
+        section_input = command.match(/^\d+$/),
         valid_section_input_found = false,
         matched_choice_idx, altern_choice_idx,
         sect = $.extend(true, {}, data.sections[curr_section]), // deep clone because we might modify it
@@ -1189,9 +1236,11 @@ $(document).ready(function($) {
             return;
         }
 
-        if (command === 'choices') {
+        if (isInArray(command, ['choices', 'cheat'])) {
             $.each(sect.choices, function(i, choice) {
-                print(choice.text);
+                if (!choice.hasOwnProperty('is_artificial')) {
+                    print(choice.text);
+                }
             });
             return;
         }
@@ -1217,15 +1266,24 @@ $(document).ready(function($) {
         }
 
         if (command === 'continue') {
-            if (sect.choices.length === 1) {
-                doSection(sect.choices[0]);
+            // if only 1 non-artificial section..
+            var n = $.map(sect.choices, function(c) { return !c.hasOwnProperty('is_artificial') ? 1 : 0; })
+                .reduce(function(a, b) { return a + b; });
+            if (n === 1) {
+                // do it!
+                $.each(sect.choices, function(i, choice) {
+                    if (!choice.hasOwnProperty('is_artificial')) {
+                        doSection(choice);
+                        return false;
+                    }
+                });
                 return;
             }
         }
 
         m = command.match(/^drop (.+)/);
         if (m) {
-            item = matchACItem(m[1].toLowerCase());
+            item = matchItem(m[1].toLowerCase());
             if (item) {
                 print('Drop the {0}?'.f(item.name), 'blue');
                 setConfirmMode({
@@ -1247,7 +1305,7 @@ $(document).ready(function($) {
 
         m = command.match(/^use (.+)/);
         if (m) {
-            item = matchACItem(m[1].toLowerCase(), ['backpack_items', 'special_items']);
+            item = matchItem(m[1].toLowerCase(), ['backpack_items', 'special_items']);
             if (item) {
                 print('Use {0}?'.f(item.name), 'blue');
                 setConfirmMode({
@@ -1307,6 +1365,7 @@ $(document).ready(function($) {
                 // if auto mode is not set, add artificial (engine) choices to allow getting them
                 if (!item.hasOwnProperty('auto')) {
                     sect.choices.push({
+                        is_artificial: true,
                         words: [['take', item.name]].concat(item.words || []),
                         item: item
                     });
@@ -1315,9 +1374,9 @@ $(document).ready(function($) {
             });
         }
 
-        ///////////////////////////
-        // command matching algo //
-        ///////////////////////////
+        ////////////////////////////////
+        // text command matching algo //
+        ////////////////////////////////
 
         // for each choice of the current section..
         $.each(sect.choices, function(i, choice) {
@@ -1461,6 +1520,8 @@ $(document).ready(function($) {
                         }
                     });
                 }
+            } else {
+                doSpecialChoice(choice);
             }
 
         }
