@@ -80,7 +80,7 @@ $(document).ready(function($) {
         "Apart from the textual play commands, you can also use:\n\n" +
         "'help' or '?': show this message\n" +
         "'ac' or '!'  : show the Action Chart\n" +
-        "'drop'/'use' : one of your inventory items\n" +
+        "'drop'/'use' : one of your (weapon, backpack or special) items\n" +
         "'continue'   : if the current section has only one choice, go to the next\n" +
         "'123'        : go to section 123 (if possible from current section)\n" +
         "'hint'       : show a random word from the choices of the current section\n" +
@@ -108,9 +108,8 @@ $(document).ready(function($) {
         weaponskill: '',
         weapons: [],
         gold: 0,
-        //meals: 0,
         backpack_items: [],
-        has_backpack: false,
+        has_backpack: true,
         special_items: [{name: 'Map', ac_section: 'special_items'},
                         {name: 'Seal of Hammerdal', ac_section: 'special_items'}]
     },
@@ -282,6 +281,7 @@ $(document).ready(function($) {
         } else{
             action_chart.endurance.current += Math.min(val, calculateEndurance().val - action_chart.endurance.current);
         }
+        return isStillAlive();
     },
 
     restart = function() {
@@ -308,56 +308,63 @@ $(document).ready(function($) {
         return true;
     },
 
-    addItem = function(item) {
+    addItem = function(item, drop_offer_type) { // offer_drop_mode: none, optional, force
         // meals can be sold in packs (of more than one)
         var item0 = $.isArray(item) ? item[0] : item;
+
+        // backpack special cases
         if (item0.name === 'Backpack') {
-            action_chart.has_backpack = true;
-            action_chart.backpack_items = [];
-            return true;
-        }
-        if (item0.ac_section === 'weapons' && action_chart.weapons.length === 2) {
-            print('You already carry two weapons..', 'blue');
-            $.each([{name:'None'}].concat(action_chart.weapons), function(i, w) {
-                print('({0}) {1}'.f(i, w.name), 'blue');
-            });
-            setOptionMode({
-                range: [48, 50],
-                prompt: '[[;#000;#ff0][choose a weapon to drop]]',
-                callback: function(i) {
-                    if (i > 0) {
-                        i -= 1;
-                        print('You have dropped your {0}.'.f(action_chart.weapons[i].name), 'blue');
-                        removeByName(action_chart.weapons[i].name, action_chart.weapons);
-                    }
-                    doSection();
-                }
-            });
-            return false;
-        }
-        if (item0.ac_section === 'backpack_items' && action_chart.backpack_items.length === 8) {
-            print('You already carry eight Backpack Items..', 'blue');
-            $.each([{name:'None'}].concat(action_chart.backpack_items), function(i, bi) {
-                print('({0}) {1}'.f(i, bi.name), 'blue');
-            });
-            setOptionMode({
-                range: [48, 56],
-                prompt: '[[;#000;#ff0][choose a backpack item to drop]]',
-                callback: function(i) {
-                    if (i > 0) {
-                        i -= 1;
-                        print('You have dropped your {0}.'.f(action_chart.backpack_items[i].name), 'blue');
-                        removeByName(action_chart.backpack_items[i].name, action_chart.backpack_items);
-                    }
-                    doSection();
-                }
-            });
-            return false;
+            if (action_chart.has_backpack) {
+                print('You already have a Backpack..', 'blue');
+                return false;
+            } else {
+                action_chart.has_backpack = true;
+                action_chart.backpack_items = [];
+                return true;
+            }
         }
         if (item0.ac_section === 'backpack_items' && !action_chart.has_backpack) {
             print('You need a Backpack for this!', 'blue');
             return false;
         }
+
+        // AC weapons and backpack items size limitation special cases
+        var found = false;
+        $.each([['weapons', 2, 'weapon'], ['backpack_items', 8, 'backpack item']], function(i, elems) {
+            var ac_sect = elems[0];
+            var lim = elems[1];
+            if (item0.ac_section === ac_sect && action_chart[ac_sect].length === lim) {
+                print('You already carry {0} weapons..'.f(lim), 'blue');
+                if (isInArray(drop_offer_type, ['optional', 'force'])) {
+                    var opts = drop_offer_type === 'optional' ? [{name:'None'}].concat(action_chart[ac_sect]) : action_chart[ac_sect];
+                    $.each(opts, function(i, w) {
+                        print('({0}) {1}'.f(i, w.name), 'blue');
+                    });
+                    setOptionMode({
+                        range: [48, 48 + opts.length - 1],
+                        prompt: '[[;#000;#ff0][choose a {0} to drop]]'.f(elems[2]),
+                        callback: function(i) {
+                            if (drop_offer_type === 'optional' && i === 0) { // none picked
+                                // remove item that triggered addItem, to avoid coming back
+                                removeByName(item.name, data.sections[curr_section].items);
+                                doSection();
+                                return;
+                            }
+                            if (drop_offer_type === 'optional') {
+                                i -= 1;
+                            }
+                            print('You have dropped your {0}.'.f(action_chart[ac_sect][i].name), 'blue');
+                            removeByName(action_chart[ac_sect][i].name, action_chart[ac_sect]);
+                            doSection();
+                        }
+                    });
+                }
+                found = true;
+                return false;
+            }
+        });
+        if (found) { return false; }
+
         var item_arr = $.isArray(item) ? item : [item];
         $.each(item_arr, function(i, item) {
             // special case here for meals, which can be sold in packs (of more than 1)
@@ -422,7 +429,6 @@ $(document).ready(function($) {
     setAutocompletionWords = function(sect) {
         var autocomplete_words = [];
         if (autocompletion_enabled) {
-            //term.set_prompt(cmd_prompt);
             $.each(sect.choices, function(i, choice) {
                 $.each(choice.words || [], function(j, word) {
                     $.each((synonyms[word] || []).concat(word), function(k, syn) {
@@ -790,10 +796,12 @@ $(document).ready(function($) {
     },
 
     doSection = function(choice) {
+
         if (!data.sections.hasOwnProperty(curr_section)) {
             print('Error: section {0} is not implemented.'.f(curr_section), 'blue');
             return;
         }
+
         if (choice !== undefined) {
             prev_section = curr_section;
             curr_section = choice.section;
@@ -811,37 +819,49 @@ $(document).ready(function($) {
                 doSpecialChoice(choice);
             }
         }
+
         var sect = data.sections[curr_section];
-        if (prev_section && data.sections[prev_section].hasOwnProperty('must_eat') && data.sections[prev_section].must_eat) {
-            print('You are hungry and thus lost some ENDURANCE.', 'blue');
-            updateEndurance(-3);
-        }
-        if (!isStillAlive()) { return; }
+        //if (!isStillAlive()) { return; }
+
         setAutocompletionWords(sect);
+
+        // done only ONCE for each visited section
         if (!sect.hasOwnProperty('visited')) {
+            sect.visited = true;
             printSectionNumber(curr_section);
             print(sect.text);
-            sect.visited = true;
             if (isInArray('Healing', action_chart.kai_disciplines) && !sect.hasOwnProperty('enemies')) {
                 if (action_chart.endurance.current < calculateEndurance().val) {
                     updateEndurance(1);
                     print('Healing..', 'blue');
                 }
             }
-        }
-        if (sect.hasOwnProperty('is_special') && sect.is_special) {
-            sect.is_special = false; // to avoid redoing it next time
-            doSpecialSection();
-            return;
-        }
-        if (sect.hasOwnProperty('endurance')) {
-            updateEndurance(sect.endurance);
-            if (sect.endurance < 0) {
-                print('You lost ENDURANCE.', 'blue');
-            } else {
-                print('You gained ENDURANCE.', 'blue');
+
+            if (sect.hasOwnProperty('endurance')) {
+                if (!updateEndurance(sect.endurance)) {
+                    return;
+                }
+                if (sect.endurance < 0) {
+                    print('You lost ENDURANCE.', 'blue');
+                } else {
+                    print('You gained ENDURANCE.', 'blue');
+                }
+            }
+
+            if (prev_section && data.sections[prev_section].hasOwnProperty('must_eat') && data.sections[prev_section].must_eat) {
+                print('You are hungry and thus lost some ENDURANCE.', 'blue');
+                if (!updateEndurance(-3)) {
+                    return;
+                }
+            }
+
+            if (sect.hasOwnProperty('is_special')) {
+                //sect.is_special = false; // to avoid redoing it next time
+                doSpecialSection();
+                return;
             }
         }
+
         if (sect.hasOwnProperty('combat')) {
             $.each(sect.combat.enemies, function(i, enemy) {
                 if (sect.combat.hasOwnProperty('is_special')) {
@@ -852,22 +872,23 @@ $(document).ready(function($) {
             });
             return;
         }
+
         if (sect.hasOwnProperty('items')) {
+            var wait_for_add_item = false;
             $.each(sect.items, function(i, item) {
                 // if auto mode, the item is added automatically
                 if (item.hasOwnProperty('auto')) {
-                    // here it would be nicer to ask the player which weapon he wants to drop..
-                    // but for now we pick the first one (assuming the new one is the Sommerswerd)
-                    if (item.ac_section === 'weapons' && action_chart.weapons.length === 2) {
-                        var it0 = action_chart.weapons[0];
-                        action_chart.weapons.remove(it0);
-                        print('To make room, your {0} had to be dropped.'.f(it0.name), 'blue');
+                    if (!addItem(item, item.hasOwnProperty('force') ? 'force' : 'optional')) {
+                        wait_for_add_item = true;
+                        return false;
                     }
-                    action_chart[item.ac_section].push(item);
                     print('The {0} was added to your Action Chart.'.f(item.name), 'blue');
                 }
                 // else: it must dealt with a command (see (*))
             });
+            if (wait_for_add_item) {
+                return;
+            }
         }
         if (sect.hasOwnProperty('options')) {
             var items = sect.options.items;
@@ -884,7 +905,7 @@ $(document).ready(function($) {
                         doSection();
                     }
                     if (!isInArray(i, option_mode.accumulator)) {
-                        if (addItem(items[i])) {
+                        if (addItem(items[i]), 'optional') { // offer_drop=optional
                             option_mode.accumulator.push(i);
                             print(items[i].name || items[i][0].name, 'blue');
                             if (option_mode.accumulator.length === sect.options.n_to_pick) {
@@ -1097,7 +1118,7 @@ $(document).ready(function($) {
         }
     },
 
-    matchInventoryItem = function(input_str, ac_sections) {
+    matchACItem = function(input_str, ac_sections) {
         var closest = {lev: Number.POSITIVE_INFINITY, item: null};
         $.each(ac_sections || ['weapons', 'backpack_items', 'special_items'], function(i, ac_section) {
             $.each(action_chart[ac_section], function(j, item) {
@@ -1195,29 +1216,29 @@ $(document).ready(function($) {
 
         m = command.match(/^drop (.+)/);
         if (m) {
-            item = matchInventoryItem(m[1].toLowerCase());
+            item = matchACItem(m[1].toLowerCase());
             if (item) {
-                print('Drop the {0} from your inventory?'.f(item.name), 'blue');
+                print('Drop the {0}?'.f(item.name), 'blue');
                 setConfirmMode({
                     yes: function() {
                         if (item.hasOwnProperty('undroppable')) {
-                            print('You must keep this item.', 'blue');
+                            print('You cannot drop that item for the moment.', 'blue');
                         } else {
                             action_chart[item.ac_section].remove(item);
                             updateEndurance();
-                            print('The item has been removed from your inventory.', 'blue');
+                            print('The item has been removed from your Action Chart.', 'blue');
                         }
                         term.set_prompt(cmd_prompt);
                     }
                 });
                 return;
             }
-            print('(If you wanted to drop an inventory item, not sure which one.)', 'blue');
+            print('(If you wanted to drop an item, not sure which one.)', 'blue');
         }
 
         m = command.match(/^use (.+)/);
         if (m) {
-            item = matchInventoryItem(m[1].toLowerCase(), ['backpack_items', 'special_items']);
+            item = matchACItem(m[1].toLowerCase(), ['backpack_items', 'special_items']);
             if (item) {
                 print('Use {0}?'.f(item.name), 'blue');
                 setConfirmMode({
@@ -1236,7 +1257,7 @@ $(document).ready(function($) {
                 });
                 return;
             }
-            print('(If you wanted to use an inventory item, not sure which one.)', 'blue');
+            print('(If you wanted to use an item, not sure which one.)', 'blue');
         }
 
         if (command.match(/^eat.*/)) {
@@ -1406,7 +1427,7 @@ $(document).ready(function($) {
                                 } else {
                                     action_chart[ac_sect].push(item);
                                     action_chart.gold -= choice.item.gold;
-                                    print('The {0} was added to the Action Chart.'.f(item.name), 'blue');
+                                    print('The {0} was added to your Action Chart.'.f(item.name), 'blue');
                                 }
                             } else {
                                 print("You don't have enough Gold Crowns.", 'blue');
@@ -1421,13 +1442,8 @@ $(document).ready(function($) {
                     print('Take the {0}?'.f(choice.item.name));
                     setConfirmMode({
                         yes: function() {
-                            var item = choice.item,
-                            ac_sect = choice.item.ac_section;
-                            if (ac_sect === 'weapons' && action_chart[ac_sect].length === 2) {
-                                print("You are already carrying two weapons (use 'drop' if you really want it).", 'blue');
-                            } else {
-                                action_chart[ac_sect].push(item);
-                                print('The {0} was added to the Action Chart.'.f(item.name), 'blue');
+                            if (addItem(choice.item)) {
+                                print('The {0} was added to your Action Chart.'.f(choice.item.name), 'blue');
                             }
                             term.set_prompt(cmd_prompt);
                         },
@@ -1568,8 +1584,14 @@ $(document).ready(function($) {
                     action_chart.endurance.current = 18;
                     action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Sixth Sense'];
                     action_chart.weaponskill = 'Broadsword';
-                    action_chart.weapons = [{name: 'Sword',ac_section:'weapons'}, {name: 'Short Sword', ac_section: 'weapons'}];
-                    action_chart.backpack_items.push(data.setup.equipment[5]); // healing potion
+                    addItem({name: 'Quarterstaff',ac_section:'weapons'});
+                    addItem({name: 'Short Sword', ac_section: 'weapons'});
+                    //action_chart.backpack_items.push(data.setup.equipment[5]); // healing potion
+
+                    for (var i = 0; i < 8; i++) {
+                        //addItem({name: 'Meal', ac_section: 'backpack_items'});
+                    }
+
                     //action_chart.backpack_items.push({name: 'Meal', ac_section: 'backpack_items'})
                     action_chart.special_items.push(data.setup.equipment[3]); // chainmail
                     action_chart.gold = 10;
