@@ -109,7 +109,7 @@ $(document).ready(function($) {
         weapons: [],
         gold: 0,
         backpack_items: [],
-        has_backpack: true,
+        has_backpack: false,
         special_items: [{name: 'Map', ac_section: 'special_items'},
                         {name: 'Seal of Hammerdal', ac_section: 'special_items'}]
     },
@@ -325,6 +325,15 @@ $(document).ready(function($) {
         }
         if (item0.ac_section === 'backpack_items' && !action_chart.has_backpack) {
             print('You need a Backpack for this!', 'blue');
+            if (!item0.hasOwnProperty('is_mandatory')) {
+                // trick: remove item that triggered addItem, to avoid coming back
+                // !!! should consume it right away!
+                removeByName(item0.name, data.sections[curr_section].items);
+                doSection();
+                return;
+            } else {
+                print('Error: mandatory item without a Backpack.', 'blue');
+            }
             return false;
         }
 
@@ -345,8 +354,8 @@ $(document).ready(function($) {
                         prompt: '[[;#000;#ff0][choose a {0} to drop]]'.f(elems[2]),
                         callback: function(i) {
                             if (drop_offer_type === 'optional' && i === 0) { // none picked
-                                // remove item that triggered addItem, to avoid coming back
-                                removeByName(item.name, data.sections[curr_section].items);
+                                // trick: remove item that triggered addItem, to avoid coming back
+                                removeByName(item0.name, data.sections[curr_section].items);
                                 doSection();
                                 return;
                             }
@@ -878,7 +887,7 @@ $(document).ready(function($) {
             $.each(sect.items, function(i, item) {
                 // if auto mode, the item is added automatically
                 if (item.hasOwnProperty('auto')) {
-                    if (!addItem(item, item.hasOwnProperty('force') ? 'force' : 'optional')) {
+                    if (!addItem(item, item.hasOwnProperty('is_mandatory') ? 'force' : 'optional')) {
                         wait_for_add_item = true;
                         return false;
                     }
