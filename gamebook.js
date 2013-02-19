@@ -72,7 +72,8 @@ $(document).ready(function($) {
     option_mode = {is_active: false,
                    prompt: '[[;#000;#ff0][choose an item]]',
                    range: [0, 9],
-                   callback: $.noop},
+                   callback: $.noop,
+                   accumulator: []},
     term,
     cmd_prompt,
     help_str =
@@ -85,7 +86,7 @@ $(document).ready(function($) {
         "'hint'       : show a random word from the choices of the current section\n" +
         "'choices'    : reveal the set of choices for the current section\n" +
         "'auto'       : toggle word autocompletion on/off\n" +
-        "'again'      : print the current section\n" +
+        "'again'      : reprint the current section\n" +
         "'restart'    : restart the game (including setup)\n" +
         "'clear'      : clear the screen\n",
 
@@ -307,6 +308,49 @@ $(document).ready(function($) {
         return true;
     },
 
+    addItem = function(item) {
+        if (item.ac_section === 'weapons' && action_chart.weapons.length === 2) {
+            print('You already carry two weapons..', 'blue');
+            $.each([{name:'None'}].concat(action_chart.weapons), function(i, w) {
+                print('({0}) {1}'.f(i, w.name), 'blue');
+            });
+            setOptionMode({
+                range: [48, 50],
+                prompt: '[[;#000;#ff0][choose a weapon to drop]]',
+                callback: function(i) {
+                    if (i > 0) {
+                        i -= 1;
+                        print('You have dropped your {0}.'.f(action_chart.weapons[i].name), 'blue');
+                        removeByName(action_chart.weapons[i].name, action_chart.weapons);
+                    }
+                    doSection();
+                }
+            });
+            return false;
+        } else if (item.ac_section === 'backpack_items' && action_chart.backpack_items.length === 8) {
+            print('You already carry eight Backpack Items..', 'blue');
+            $.each([{name:'None'}].concat(action_chart.backpack_items), function(i, item) {
+                print('({0}) {1}'.f(i, item.name), 'blue');
+            });
+            setOptionMode({
+                range: [48, 56],
+                prompt: '[[;#000;#ff0][choose a backpack item to drop]]',
+                callback: function(i) {
+                    if (i > 0) {
+                        i -= 1;
+                        print('You have dropped your {0}.'.f(action_chart.backpack_items[i].name), 'blue');
+                        removeByName(action_chart.backpack_items[i].name, action_chart.backpack_items);
+                    }
+                    doSection();
+                }
+            });
+            return false;
+        } else {
+            action_chart[item.ac_section].push(item);
+        }
+        return true;
+    },
+
     satisfiesChoiceRequirements = function(choice) {
         var ok = true;
         $.each(Object.keys(choice.requires || []), function(j, key) {
@@ -361,7 +405,7 @@ $(document).ready(function($) {
     setAutocompletionWords = function(sect) {
         var autocomplete_words = [];
         if (autocompletion_enabled) {
-            term.set_prompt(cmd_prompt);
+            //term.set_prompt(cmd_prompt);
             $.each(sect.choices, function(i, choice) {
                 $.each(choice.words || [], function(j, word) {
                     $.each((synonyms[word] || []).concat(word), function(k, syn) {
@@ -809,7 +853,34 @@ $(document).ready(function($) {
             });
         }
         if (sect.hasOwnProperty('options')) {
+            var items = sect.options.items;
+            if (choice !== undefined) {
+                option_mode.accumulator = [];
+            }
+            if (option_mode.is_active) { return; }
             setOptionMode({
+                range: [48, 48 + items.length - 1],
+                prompt: '[[;#000;#ff0][choose an item]] (' + (sect.options.n_to_choose - option_mode.accumulator.length) + ' left)',
+                callback: function(i) {
+                    if (i === 0) {
+                        delete sect['options'];
+                        doSection();
+                        return;
+                    }
+                    if (!isInArray(i, option_mode.accumulator)) {
+                        if (addItem(items[i])) {
+                            option_mode.accumulator.push(i);
+                            print(items[i].name, 'blue');
+                            if (option_mode.accumulator.length === sect.options.n_to_choose) {
+                                delete sect['options'];
+                                doSection();
+                                return;
+                            }
+                        }
+                    }
+                    doSection();
+                    return;
+                }
             });
             return;
         }

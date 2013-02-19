@@ -74,7 +74,8 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
         if item.tag == 'p':
             sect_paras.append(processPara(s))
         if item.tag == 'ul':
-            for i, li in enumerate(item):
+            sect_paras.append(['(0) None'])
+            for i, li in enumerate(item, 1):
                 sect_paras.append(['(%s) %s' % (i, li.text)])
             list_found = True
         elif item.tag == 'combat':
