@@ -150,6 +150,11 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             section['combat'].update(cust_sect['combat'])
         if 'options' in cust_sect:
             section['options'] = cust_sect['options']
+        if 'must_eat' in cust_sect:
+            if cust_sect['must_eat']:
+                section['must_eat'] = True
+            else:
+                del section['must_eat']
         for custom_choice in custom['sections'][sect_id].get('choices', []):
             # no key to match here, so we got to match using choice.section (thus the need to search)
             #print custom_choice['section']

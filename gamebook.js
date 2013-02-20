@@ -110,7 +110,7 @@ $(document).ready(function($) {
         weapons: [],
         gold: 0,
         backpack_items: [],
-        has_backpack: false,
+        has_backpack: true,
         special_items: [{name: 'Map', ac_section: 'special_items'},
                         {name: 'Seal of Hammerdal', ac_section: 'special_items'}]
     },
@@ -341,16 +341,22 @@ $(document).ready(function($) {
             }
         }
         if (item0.ac_section === 'backpack_items' && !action_chart.has_backpack) {
-            print('You need a Backpack for this!', 'blue');
-            if (!item0.hasOwnProperty('is_mandatory')) {
-                // trick: remove item that triggered addItem, to avoid coming back
-                // !!! should consume it right away!
-                removeByName(item0.name, data.sections[curr_section].items);
-                doSection();
-                return;
-            } else {
-                print('Error: mandatory item without a Backpack.', 'blue');
+            if (item0.hasOwnProperty('is_mandatory')) {
+                print('Error: mandatory item without a Backpack!', 'blue');
             }
+            print('You need a Backpack for this!', 'blue');
+            if (item0.hasOwnProperty('is_consumable')) {
+                print('Consume it now?', 'blue');
+                setConfirmMode({
+                    yes: function() {
+                        updateEndurance(item0.endurance);
+                        print('You gain {0} ENDURANCE points.'.f(item0.endurance), 'blue');
+                        term.set_prompt(cmd_prompt);
+                    }
+                });
+            }
+            // remove item that triggered addItem, to avoid coming back
+            removeByName(item0.name, data.sections[curr_section].items || []);
             return false;
         }
 
@@ -877,9 +883,9 @@ $(document).ready(function($) {
             if (choice.hasOwnProperty('endurance')) {
                 updateEndurance(choice.endurance);
                 if (choice.endurance < 0) {
-                    print('You lost ENDURANCE.', 'blue');
+                    print('You lose ENDURANCE.', 'blue');
                 } else {
-                    print('You gained ENDURANCE.', 'blue');
+                    print('You gain ENDURANCE.', 'blue');
                 }
             }
             visited_sections.push(curr_section);
@@ -909,9 +915,9 @@ $(document).ready(function($) {
                     return;
                 }
                 if (sect.endurance < 0) {
-                    print('You lost ENDURANCE.', 'blue');
+                    print('You lose ENDURANCE.', 'blue');
                 } else {
-                    print('You gained ENDURANCE.', 'blue');
+                    print('You gain ENDURANCE.', 'blue');
                 }
             }
 
@@ -954,6 +960,10 @@ $(document).ready(function($) {
                 // else: must be dealt with a text command (see (*))
             });
             if (wait_for_add_item) {
+                if (!confirm_mode.is_active && !option_mode.is_active) {
+                    // if backpack needed but anything else asked (i.e. continue)
+                    doSection();
+                }
                 return;
             }
         }
@@ -973,7 +983,7 @@ $(document).ready(function($) {
                         doSection();
                     }
                     if (!isInArray(i, option_mode.accumulator)) {
-                        if (addItem(items[i]), 'optional') { // offer_drop=optional
+                        if (addItem(items[i], 'optional')) { // offer_drop=optional
                             option_mode.accumulator.push(i);
                             print(items[i].name || items[i][0].name, 'blue');
                             if (option_mode.accumulator.length === sect.options.n_to_pick) {
@@ -1080,8 +1090,7 @@ $(document).ready(function($) {
         term.echo('Kai Disciplines: ' + kds.join(', '));
         term.echo('Weapons        : ' + getNames(action_chart.weapons).join(', '));
         term.echo('Gold Crowns    : ' + action_chart.gold);
-        //term.echo('Meals          : ' + action_chart.meals);
-        term.echo('Backpack Items : ' + getNames(action_chart.backpack_items).join(', '));
+        term.echo('Backpack Items : ' + (action_chart.has_backpack ? getNames(action_chart.backpack_items).join(', ') : '[---]'));
         term.echo('Special Items  : ' + getNames(action_chart.special_items).join(', ') + '\n\n');
     },
 
@@ -1310,14 +1319,18 @@ $(document).ready(function($) {
                 print('Use {0}?'.f(item.name), 'blue');
                 setConfirmMode({
                     yes: function() {
-                        if (item.hasOwnProperty('effect') && item.effect.type === 'consumable') {
-                            if (item.effect.hasOwnProperty('endurance')) {
-                                updateEndurance(item.effect.endurance);
-                                print('You gained {0} ENDURANCE points.'.f(item.effect.endurance), 'blue');
+                        if (item.hasOwnProperty('is_consumable')) {
+                            if (item.hasOwnProperty('endurance')) {
+                                updateEndurance(item.endurance);
+                                print('You gain {0} ENDURANCE points.'.f(item.endurance), 'blue');
                             }
                             action_chart[item.ac_section].remove(item);
                         } else {
-                            print("I don't know how to use that.", 'blue');
+                            if (item.name === 'Meal') {
+                                print("I know I'm a little fussy, but you can only 'eat' Meals (not 'use' them), sorry..", 'blue');
+                            } else {
+                                print("I don't know how to use that.", 'blue');
+                            }
                         }
                         term.set_prompt(cmd_prompt);
                     }
@@ -1329,7 +1342,7 @@ $(document).ready(function($) {
 
         if (command.match(/^eat.*/)) {
             if (!sect.hasOwnProperty('must_eat')) {
-                print('You are not hungry enough to eat.', 'blue');
+                print('You are not hungry enough right now.', 'blue');
             } else {
                 if (!isInArray('Meal', getNames(action_chart.backpack_items))) {
                     print('You have no Meal left.', 'blue');
@@ -1657,15 +1670,12 @@ $(document).ready(function($) {
                     addItem({name: 'Quarterstaff',ac_section:'weapons'});
                     addItem({name: 'Short Sword', ac_section: 'weapons'});
                     //action_chart.backpack_items.push(data.setup.equipment[5]); // healing potion
-
-                    for (var i = 0; i < 8; i++) {
+                    for (var i = 0; i < 8; i++) { // fill with Meals
                         //addItem({name: 'Meal', ac_section: 'backpack_items'});
                     }
-
-                    //action_chart.backpack_items.push({name: 'Meal', ac_section: 'backpack_items'})
+                    action_chart.backpack_items.push({name: 'Meal', ac_section: 'backpack_items'})
                     action_chart.special_items.push(data.setup.equipment[3]); // chainmail
                     action_chart.gold = 10;
-                    //action_chart.meals = 2;
                     doSection({section:location.search.match(/sect=(\d+)/) ? location.search.match(/sect=(\d+)/)[1] : '1'});
                 } else {
                     initSequenceMode(engine_intro, 'engine_intro');
