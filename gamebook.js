@@ -1345,7 +1345,14 @@ $(document).ready(function($) {
                 print('You are not hungry enough right now.', 'blue');
             } else {
                 if (!isInArray('Meal', getNames(action_chart.backpack_items))) {
-                    print('You have no Meal left.', 'blue');
+                    if (!isInArray('Laumspur Meal', getNames(action_chart.backpack_items))) {
+                        print('You have no Meal left.', 'blue');
+                    } else {
+                        removeByName('Laumspur Meal', action_chart.backpack_items);
+                        data.sections[curr_section].must_eat = false;
+                        updateEndurance(3);
+                        print('You eat a Laumspur Meal (and gain 3 ENDURANCE points).', 'blue');
+                    }
                 } else {
                     removeByName('Meal', action_chart.backpack_items);
                     data.sections[curr_section].must_eat = false;
@@ -1673,7 +1680,7 @@ $(document).ready(function($) {
                     for (var i = 0; i < 8; i++) { // fill with Meals
                         //addItem({name: 'Meal', ac_section: 'backpack_items'});
                     }
-                    action_chart.backpack_items.push({name: 'Meal', ac_section: 'backpack_items'})
+                    //action_chart.backpack_items.push({name: 'Meal', ac_section: 'backpack_items'})
                     action_chart.special_items.push(data.setup.equipment[3]); // chainmail
                     action_chart.gold = 10;
                     doSection({section:location.search.match(/sect=(\d+)/) ? location.search.match(/sect=(\d+)/)[1] : '1'});
