@@ -76,6 +76,7 @@ $(document).ready(function($) {
                    accumulator: []},
     term,
     command,
+    command_split_regexp = /[^A-Za-z0-9'-]+/, // every nonalpha except "'" and "-"
     cmd_prompt,
     help_str =
         "Apart from the textual play commands, you can also use:\n\n" +
@@ -418,7 +419,12 @@ $(document).ready(function($) {
             // special case here for meals, which can be sold in packs (of more than 1)
             // we stuff as many as we can in the remaining space!
             if (item.ac_section === 'backpack_items' && action_chart.backpack_items.length === 8) { return true; }
-            action_chart[item.ac_section].push(item);
+            if (item.ac_section === 'gold') {
+                action_chart.gold += item.value;
+            } else {
+                action_chart[item.ac_section].push(item);
+            }
+            removeByName(item.name, data.sections[curr_section].items || []);
         });
         return true;
     },
@@ -428,7 +434,7 @@ $(document).ready(function($) {
         var closest = {lev: Number.POSITIVE_INFINITY, item: null};
         $.each(ac_sections || ['weapons', 'backpack_items', 'special_items'], function(i, ac_section) {
             $.each(action_chart[ac_section], function(j, item) {
-                var item_name_words = item.name.split(/[^A-Za-z0-9']+/).concat(item.name);
+                var item_name_words = item.name.split(command_split_regexp).concat(item.name);
                 $.each(item_name_words, function(k, inw) {
                     var lev = levenshteinDist(input_str, inw.toLowerCase());
                     //console.log(iw, lev);
@@ -1252,7 +1258,7 @@ $(document).ready(function($) {
         if (!command) { return; }
 
         var choice_match_results = [], // list of [n_choice_matches, choice idx]'s, one for every choice, to be sorted
-        input_tokens = command.split(/[^A-Za-z0-9'-]+/), // every nonalpha except "'" and "-"
+        input_tokens = command.split(command_split_regexp), // every nonalpha except "'" and "-"
         section_input = command.match(/^\d+$/),
         valid_section_input_found = false,
         matched_choice_idx, altern_choice_idx,
@@ -1336,7 +1342,7 @@ $(document).ready(function($) {
         if (m) {
             item = matchItem(m[1].toLowerCase());
             if (item) {
-                print('Drop the {0}?'.f(item.name), 'blue');
+                print('Drop your {0}?'.f(item.name), 'blue');
                 setConfirmMode({
                     yes: function() {
                         if (item.ac_section === 'special_items') {
@@ -1358,7 +1364,7 @@ $(document).ready(function($) {
         if (m) {
             item = matchItem(m[1].toLowerCase(), ['backpack_items', 'special_items']);
             if (item) {
-                print('Use {0}?'.f(item.name), 'blue');
+                print('Use your {0}?'.f(item.name), 'blue');
                 setConfirmMode({
                     yes: function() {
                         if (item.hasOwnProperty('is_consumable')) {
@@ -1426,9 +1432,12 @@ $(document).ready(function($) {
             $.each(sect.items, function(i, item) {
                 // if auto mode is not set, add artificial (engine) choices to allow getting them
                 if (!item.hasOwnProperty('auto')) {
+                    var words = ['take'];
+                    words = words.concat(item.name.split(command_split_regexp));
+                    words = words.concat(item.words || []);
                     sect.choices.push({
                         is_artificial: true,
-                        words: [['take', item.name]].concat(item.words || []),
+                        words: words,
                         item: item
                     });
                 }
