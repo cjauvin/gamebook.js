@@ -369,8 +369,10 @@ $(document).ready(function($) {
                         updateEndurance(item0.endurance);
                         print('You gain {0} ENDURANCE points.'.f(item0.endurance), 'blue');
                         term.set_prompt(cmd_prompt);
+                        removeByName(item0.name, data.sections[curr_section].items || []);
                     }
                 });
+                return false;
             }
             // remove item that triggered addItem, to avoid coming back
             removeByName(item0.name, data.sections[curr_section].items || []);
@@ -383,8 +385,8 @@ $(document).ready(function($) {
             var ac_sect = elems[0];
             var lim = elems[1];
             if (item0.ac_section === ac_sect && action_chart[ac_sect].length === lim) {
-                print('You already carry {0} weapons..'.f(lim), 'blue');
-                if (isInArray(drop_offer_type, ['optional', 'force'])) {
+                print('You already carry {0} {1}s..'.f(lim, elems[2]), 'blue');
+                if (isInArray(drop_offer_type, ['optional', 'force'])) { // note: force option no longuer necessary I think
                     var opts = drop_offer_type === 'optional' ? [{name:'None'}].concat(action_chart[ac_sect]) : action_chart[ac_sect];
                     $.each(opts, function(i, w) {
                         print('({0}) {1}'.f(i, w.name), 'blue');
@@ -395,7 +397,7 @@ $(document).ready(function($) {
                         callback: function(i) {
                             if (drop_offer_type === 'optional' && i === 0) { // none picked
                                 // trick: remove item that triggered addItem, to avoid coming back
-                                removeByName(item0.name, data.sections[curr_section].items);
+                                removeByName(item0.name, data.sections[curr_section].items || []);
                                 doSection();
                                 return;
                             }
@@ -403,7 +405,7 @@ $(document).ready(function($) {
                                 i -= 1;
                             }
                             print('You have dropped your {0}.'.f(action_chart[ac_sect][i].name), 'blue');
-                            removeByName(action_chart[ac_sect][i].name, action_chart[ac_sect]);
+                            removeByName(action_chart[ac_sect][i].name, action_chart[ac_sect] || []);
                             doSection();
                         }
                     });
@@ -796,16 +798,28 @@ $(document).ready(function($) {
                 var r = pickRandomNumber();
                 action_chart.gold += (r + 5);
                 print('You have picked {0}: you win {1} Gold Crowns.'.f(r, (r + 5)), 'blue');
+                action_chart.gold -= 1;
+                print('You pay 1 Gold Crown for the room.', 'blue');
                 doSection();
             });
             break;
 
         case '122':
             if (isInArray('Sixth Sense', action_chart.kai_disciplines)) {
-                setPressKeyMode(function() {
-                    doSection(sect.choices[0]);
+                print(sect.choices[0].text);
+                setConfirmMode({
+                    yes: function() {
+                        doSection(sect.choices[0]);
+                    },
+                    no: function() {
+                        // remove two random pick choices
+                        sect.choices.remove(sect.choices[1]);
+                        sect.choices.remove(sect.choices[1]);
+                        term.set_prompt(cmd_prompt);
+                    }
                 });
             } else {
+                print('If not, pick a number from the Random Number Table.');
                 sect.choices.remove(sect.choices[0]);
                 sect.is_random_pick = true;
                 doSection();
@@ -1003,7 +1017,7 @@ $(document).ready(function($) {
             $.each(sect.items, function(i, item) {
                 // if auto mode, the item is added automatically
                 if (item.hasOwnProperty('auto')) {
-                    if (!addItem(item, item.hasOwnProperty('is_mandatory') ? 'force' : 'optional')) {
+                    if (!addItem(item, 'optional')) {
                         wait_for_add_item = true;
                         return false;
                     }
@@ -1393,6 +1407,7 @@ $(document).ready(function($) {
                 print('You are not hungry enough right now.', 'blue');
             } else {
                 if (!isInArray('Meal', getNames(action_chart.backpack_items))) {
+                    // special rule for Laumspur Meal
                     if (!isInArray('Laumspur Meal', getNames(action_chart.backpack_items))) {
                         print('You have no Meal left.', 'blue');
                     } else {
@@ -1584,7 +1599,9 @@ $(document).ready(function($) {
                             if (addItem(choice.item)) {
                                 print('The {0} was added to your Action Chart.'.f(choice.item.name), 'blue');
                             }
-                            term.set_prompt(cmd_prompt);
+                            if (!confirm_mode.is_active && !option_mode.is_active) {
+                                term.set_prompt(cmd_prompt);
+                            }
                         },
                         no: function() {
                             term.set_prompt(cmd_prompt);
@@ -1723,8 +1740,8 @@ $(document).ready(function($) {
                     action_chart.combat_skill = 10;
                     action_chart.endurance.initial = 20;
                     action_chart.endurance.current = 18;
-                    action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage'];
-                    action_chart.weaponskill = 'Broadsword';
+                    action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Sixth Sense'];
+                    action_chart.weaponskill = 'Spear';
                     addItem({name: 'Quarterstaff',ac_section:'weapons'});
                     addItem({name: 'Short Sword', ac_section: 'weapons'});
                     //action_chart.backpack_items.push(data.setup.equipment[5]); // healing potion
