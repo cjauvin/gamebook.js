@@ -48,6 +48,7 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
     must_eat = False
     list_found = False
     footref_found = False
+    mindforce_found = False
     for item in sect_elem.find('data'):
         s = etree.tostring(item).strip()
         for subitem in item:
@@ -71,6 +72,8 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             immune_to_mindblast_found = True
         if 'Meal' in s and 'must' in s:
             must_eat = True
+        if 'Mindforce' in s:
+            mindforce_found = True
         if item.tag == 'p':
             sect_paras.append(processPara(s))
         if item.tag == 'ul':
@@ -128,6 +131,9 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
         if immune_to_mindblast_found:
             assert len(combat['enemies']) == 1
             combat['enemies'][0]['immune'] = "Mindblast"
+        if mindforce_found:
+            assert len(combat['enemies']) == 1
+            combat['enemies'][0]['has_mindforce'] = True
         if 'win' not in combat and len(choices) == 1:
             combat['win'] = {'choice': 0}
         section['combat'] = combat
