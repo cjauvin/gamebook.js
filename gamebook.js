@@ -242,7 +242,8 @@ $(document).ready(function($) {
         var ac = action_chart,
         str = '{0}'.f(ac.combat_skill),
         val = ac.combat_skill,
-        enemy = enemy ? enemy : {};
+        enemy = enemy ? enemy : {},
+        sect = data.sections[curr_section];
 
         // Sommerswerd
         if (isInArray('Sommerswerd', getNames(ac.special_items))) {
@@ -282,6 +283,10 @@ $(document).ready(function($) {
         if (ac.weapons.length === 0 && !has_special_weapon) {
             str += ' - 4(NoWp)';
             val -= 4;
+        }
+        // if in combat, check for a possible temporary modifier
+        if (sect.hasOwnProperty('combat')) {
+            val += sect.combat.combat_skill || 0;
         }
         if (str !== '{0}'.f(ac.combat_skill)) {
             str = '{0} [[;#00f;#000]{1}]'.f(val, str);
@@ -1015,6 +1020,7 @@ $(document).ready(function($) {
 
         if (sect.hasOwnProperty('combat')) {
             if (sect.combat.enemies.length > 0) {
+                // combat first enemy and the others (if any) will be chained at the end
                 if (sect.combat.hasOwnProperty('is_special')) {
                     doSpecialCombat(sect.combat.enemies[0], 0);
                 } else {
