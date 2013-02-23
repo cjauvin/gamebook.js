@@ -114,7 +114,7 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
     if enemies:
         combat['enemies'] = enemies
         for i, choice in enumerate(choices):
-            if 'win' in choice['text']:
+            if 'win' in choice['text'] or 'if you kill' in choice['text'].lower():
                 combat['win'] = {'choice': i}
             elif 'evade' in choice['text']:
                 combat['evasion'] = {'choice': i}
@@ -194,22 +194,25 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
     if report and sect_id not in custom['sections']: #True:
         print '%s: %s' % (sect_id, ', '.join(report))
 
-#exit()
-
-q = Queue()
-visited = set()
-q.put('1')
 section_od = OrderedDict()
-to_set = []
-while not q.empty():
-    sect_id = q.get()
-    to_set.append(sect_id)
+for sect_id in range(1, 351):
+    sect_id = str(sect_id)
     section_od[sect_id] = sections[sect_id]
-#    if sect_id == '197': continue
-    for choice in sections[sect_id]['choices']:
-        if choice['section'] not in visited:
-            q.put(choice['section'])
-            visited.add(choice['section'])
+
+# q = Queue()
+# visited = set()
+# q.put('1')
+# section_od = OrderedDict()
+# to_set = []
+# while not q.empty():
+#     sect_id = q.get()
+#     to_set.append(sect_id)
+#     section_od[sect_id] = sections[sect_id]
+# #    if sect_id == '197': continue
+#     for choice in sections[sect_id]['choices']:
+#         if choice['section'] not in visited:
+#             q.put(choice['section'])
+#             visited.add(choice['section'])
 
 result_od = OrderedDict()
 setup_od = OrderedDict()
@@ -222,4 +225,4 @@ result_od['sections'] = section_od
 #json.dump(result_od, open('fotw_generated.json', 'w'), indent=4)
 open('fotw_generated.json', 'w').write('\n'.join([line.rstrip() for line in json.dumps(result_od, indent=4).split('\n')]))
 
-print 'produced %d sections' % len(result_od['sections'])
+#print 'produced %d sections' % len(result_od['sections'])

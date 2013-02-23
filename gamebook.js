@@ -703,14 +703,26 @@ $(document).ready(function($) {
             alive = isStillAlive();
             if (enemy.endurance <= 0 && alive) {
                 print('{0} has died.'.f(enemy.name), 'red');
-                win_choice = sect.choices[sect.combat.win.choice];
-                print('({0})'.f(win_choice.text));
-                setConfirmMode({
-                    prompt: '[[;#000;#ff0][continue y/n]]',
-                    yes: function() {
-                        doSection(win_choice);
-                    }
-                });
+                sect.combat.enemies.remove(sect.combat.enemies[0]);
+                if (sect.combat.enemies.length === 0) {
+                    win_choice = sect.choices[sect.combat.win.choice];
+                    print('({0})'.f(win_choice.text));
+                    setConfirmMode({
+                        prompt: '[[;#000;#ff0][continue y/n]]',
+                        yes: function() {
+                            doSection(win_choice);
+                        },
+                        no: function() {
+                            // only keep the combat win choice
+                            data.sections[curr_section].choices = [win_choice];
+                            term.set_prompt(cmd_prompt);
+                        }
+                    });
+                } else {
+                    setPressKeyMode(function() {
+                        doSection();
+                    });
+                }
                 return false;
             }
             return alive;
@@ -1002,13 +1014,13 @@ $(document).ready(function($) {
         }
 
         if (sect.hasOwnProperty('combat')) {
-            $.each(sect.combat.enemies, function(i, enemy) {
+            if (sect.combat.enemies.length > 0) {
                 if (sect.combat.hasOwnProperty('is_special')) {
-                    doSpecialCombat(enemy, 0);
+                    doSpecialCombat(sect.combat.enemies[0], 0);
                 } else {
-                    doCombat(enemy, 0);
+                    doCombat(sect.combat.enemies[0], 0);
                 }
-            });
+            }
             return;
         }
 
