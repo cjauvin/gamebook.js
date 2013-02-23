@@ -347,41 +347,43 @@ $(document).ready(function($) {
     },
 
     //------------------------------------------------------------------------------------------------------------
-    addItem = function(item, drop_offer_type) { // offer_drop_mode: none, optional, force
-        // meals can be sold in packs (of more than one)
-        var item0 = $.isArray(item) ? item[0] : item;
+    addItem = function(item, offer_replacement) {
+
+        var sect = data.sections[curr_section];
+
+        if (sect.n_picked_items >= sect.n_items_to_pick) {
+            print('You already picked {0} items.'.f(sect.n_picked_items), 'blue');
+            return;
+        }
 
         // backpack special cases
-        if (item0.name === 'Backpack') {
+        if (item.name === 'Backpack') {
             if (action_chart.has_backpack) {
                 print('You already have a Backpack..', 'blue');
-                return false;
             } else {
                 action_chart.has_backpack = true;
                 action_chart.backpack_items = [];
-                return true;
+                sect.n_picked_items += 1;
             }
+            return;
         }
-        if (item0.ac_section === 'backpack_items' && !action_chart.has_backpack) {
-            if (item0.hasOwnProperty('is_mandatory')) {
-                print('Error: mandatory item without a Backpack!', 'blue');
-            }
+        if (item.ac_section === 'backpack_items' && !action_chart.has_backpack) {
             print('You need a Backpack for this!', 'blue');
-            if (item0.hasOwnProperty('is_consumable')) {
+            if (item.hasOwnProperty('is_consumable')) {
                 print('Consume it now?', 'blue');
                 setConfirmMode({
                     yes: function() {
-                        updateEndurance(item0.endurance);
-                        print('You gain {0} ENDURANCE points.'.f(item0.endurance), 'blue');
+                        updateEndurance(item.endurance);
+                        print('You gain {0} ENDURANCE points.'.f(item.endurance), 'blue');
                         term.set_prompt(cmd_prompt);
-                        removeByName(item0.name, data.sections[curr_section].items || []);
+                        removeByName(item.name, data.sections[curr_section].items || []);
                     }
                 });
-                return false;
+                return;
             }
             // remove item that triggered addItem, to avoid coming back
-            removeByName(item0.name, data.sections[curr_section].items || []);
-            return false;
+            removeByName(item.name, data.sections[curr_section].items || []);
+            return;
         }
 
         // AC weapons and backpack items size limitation special cases
@@ -389,51 +391,63 @@ $(document).ready(function($) {
         $.each([['weapons', 2, 'weapon'], ['backpack_items', 8, 'backpack item']], function(i, elems) {
             var ac_sect = elems[0];
             var lim = elems[1];
-            if (item0.ac_section === ac_sect && action_chart[ac_sect].length === lim) {
-                print('You already carry {0} {1}s..'.f(lim, elems[2]), 'blue');
-                if (isInArray(drop_offer_type, ['optional', 'force'])) { // note: force option no longuer necessary I think
-                    var opts = drop_offer_type === 'optional' ? [{name:'None'}].concat(action_chart[ac_sect]) : action_chart[ac_sect];
-                    $.each(opts, function(i, w) {
-                        print('({0}) {1}'.f(i, w.name), 'blue');
+            if (item.ac_section === ac_sect && action_chart[ac_sect].length === lim) {
+                print('Cannot add {0}: you already carry {1} {2}s..'.f(item.name, lim, elems[2]), 'blue');
+                if (offer_replacement) {
+                    var opts = [{name:'None'}].concat(action_chart[ac_sect]);
+                    $.each(opts, function(i, opt) {
+                        print('({0}) {1}'.f(i, opt.name), 'blue');
                     });
                     setOptionMode({
                         range: [48, 48 + opts.length - 1],
-                        prompt: '[[;#000;#ff0][choose a {0} to drop]]'.f(elems[2]),
+                        prompt: '[[;#000;#ff0][choose a {0} to replace]]'.f(elems[2]),
                         callback: function(i) {
-                            if (drop_offer_type === 'optional' && i === 0) { // none picked
+                            if (i === 0) { // none picked
                                 // trick: remove item that triggered addItem, to avoid coming back
-                                removeByName(item0.name, data.sections[curr_section].items || []);
+                                removeByName(item.name, data.sections[curr_section].items || []);
                                 doSection();
                                 return;
                             }
-                            if (drop_offer_type === 'optional') {
-                                i -= 1;
-                            }
-                            print('You have dropped your {0}.'.f(action_chart[ac_sect][i].name), 'blue');
+                            i -= 1;
+                            print('You have replaced your {0} by a {1}.'.f(action_chart[ac_sect][i].name, item.name), 'blue');
+                            // remove replaced item from ac
                             removeByName(action_chart[ac_sect][i].name, action_chart[ac_sect] || []);
+                            // add new item
+                            action_chart[ac_sect].push(item);
+                            // remove new item from section
+                            removeByName(item.name, data.sections[curr_section].items || []);
+                            sect.n_picked_items += 1;
                             doSection();
                         }
                     });
                 }
                 found = true;
-                return false;
+                return false; // get out of $.each
             }
         });
-        if (found) { return false; }
+        if (found) { return; }
 
-        var item_arr = $.isArray(item) ? item : [item];
-        $.each(item_arr, function(i, item) {
-            // special case here for meals, which can be sold in packs (of more than 1)
-            // we stuff as many as we can in the remaining space!
-            if (item.ac_section === 'backpack_items' && action_chart.backpack_items.length === 8) { return true; }
+        // normal case: add item
+        removeByName(item.name, data.sections[curr_section].items || []);
+        sect.n_picked_items += 1;
+
+        // special case here for meals, which can be sold in packs (of more than 1)
+        // we stuff as many as we can in the remaining space!
+        if (item.hasOwnProperty('n')) {
+            for (var i = 0; i < item.n; i++) {
+                if (item.ac_section === 'backpack_items' && action_chart.backpack_items.length === 8) { return; }
+                action_chart[item.ac_section].push(item);
+                print('The {0} has been added to your Action Chart.'.f(item.name), 'blue');
+            }
+        } else {
             if (item.ac_section === 'gold') {
                 action_chart.gold += item.value;
+                print('The Gold has been added to your Action Chart.', 'blue');
             } else {
                 action_chart[item.ac_section].push(item);
+                print('The {0} has been added to your Action Chart.'.f(item.name), 'blue');
             }
-            removeByName(item.name, data.sections[curr_section].items || []);
-        });
-        return true;
+        }
     },
 
     //------------------------------------------------------------------------------------------------------------
@@ -843,6 +857,20 @@ $(document).ready(function($) {
             }
             break;
 
+        case '141':
+            if (isInArray('Chainmail Waistcoat', getNames(action_chart.special_items))) {
+                removeByName('Chainmail Waistcoat', action_chart.special_items);
+                print('You lose your Chainmail Waistcoat.', 'blue');
+            }
+            doSection();
+            break;
+
+        case '144':
+            action_chart.gold = 0;
+            print('You have lost all your Gold.', 'blue');
+            doSection();
+            break;
+
         case '308':
             if (action_chart.gold < 3) {
                 print("You don't have enough Gold Crowns to play.", 'blue');
@@ -959,6 +987,10 @@ $(document).ready(function($) {
             return;
         }
 
+        if (confirm_mode.is_active || option_mode.is_active || press_key_mode.is_active) {
+            return;
+        }
+
         if (choice !== undefined) {
             prev_section = curr_section;
             curr_section = choice.section;
@@ -983,7 +1015,10 @@ $(document).ready(function($) {
 
         // done only ONCE for each visited section
         if (!sect.hasOwnProperty('visited')) {
+
             sect.visited = true;
+            sect.n_items_to_pick = sect.hasOwnProperty('n_items_to_pick') ? sect.n_items_to_pick : Number.POSITIVE_INFINITY;
+            sect.n_picked_items = 0;
             printSectionNumber(curr_section);
             print(sect.text);
             if (isInArray('Healing', action_chart.kai_disciplines) && !sect.hasOwnProperty('enemies')) {
@@ -991,6 +1026,10 @@ $(document).ready(function($) {
                     updateEndurance(1);
                     print('Healing..', 'blue');
                 }
+            }
+
+            if (sect.hasOwnProperty('items')) {
+                print('There are items.', 'blue');
             }
 
             if (sect.hasOwnProperty('endurance')) {
@@ -1016,6 +1055,7 @@ $(document).ready(function($) {
                 doSpecialSection();
                 return;
             }
+
         }
 
         if (sect.hasOwnProperty('combat')) {
@@ -1031,57 +1071,19 @@ $(document).ready(function($) {
         }
 
         if (sect.hasOwnProperty('items')) {
-            var wait_for_add_item = false;
+            var found_auto_item = false;
             $.each(sect.items, function(i, item) {
-                // if auto mode, the item is added automatically
                 if (item.hasOwnProperty('auto')) {
-                    if (!addItem(item, 'optional')) {
-                        wait_for_add_item = true;
-                        return false;
-                    }
-                    print('The {0} was added to your Action Chart.'.f(item.name), 'blue');
-                }
-                // else: must be dealt with a text command (see (*))
+                    delete item['auto'];
+                    addItem(item); //, 'optional');
+                    found_auto_item = true;
+                    return false;
+                } // else, !auto: must be dealt with a text command (see (*))
             });
-            if (wait_for_add_item) {
-                if (!confirm_mode.is_active && !option_mode.is_active) {
-                    // if backpack needed but anything else asked (i.e. continue)
-                    doSection();
-                }
+            if (found_auto_item) {
+                doSection(); // return for more
                 return;
             }
-        }
-
-        if (sect.hasOwnProperty('options')) {
-            var items = sect.options.items;
-            if (choice !== undefined) {
-                option_mode.accumulator = [];
-            }
-            if (option_mode.is_active) { return; }
-            setOptionMode({
-                range: [48, 48 + items.length - 1],
-                prompt: '[[;#000;#ff0][choose an item ({0} left)]]'.f(sect.options.n_to_pick - option_mode.accumulator.length),
-                callback: function(i) {
-                    if (i === 0) {
-                        delete sect['options'];
-                        doSection();
-                    }
-                    if (!isInArray(i, option_mode.accumulator)) {
-                        if (addItem(items[i], 'optional')) { // offer_drop=optional
-                            option_mode.accumulator.push(i);
-                            print(items[i].name || items[i][0].name, 'blue');
-                            if (option_mode.accumulator.length === sect.options.n_to_pick) {
-                                delete sect['options'];
-                                doSection();
-                                return;
-                            }
-                        }
-                    }
-                    doSection();
-                    return;
-                }
-            });
-            return;
         }
 
         if (sect.hasOwnProperty('is_random_pick')) {
@@ -1614,12 +1616,8 @@ $(document).ready(function($) {
                     print('Take the {0}?'.f(choice.item.name));
                     setConfirmMode({
                         yes: function() {
-                            if (addItem(choice.item)) {
-                                print('The {0} was added to your Action Chart.'.f(choice.item.name), 'blue');
-                            }
-                            if (!confirm_mode.is_active && !option_mode.is_active) {
-                                term.set_prompt(cmd_prompt);
-                            }
+                            addItem(choice.item);
+                            term.set_prompt(cmd_prompt);
                         },
                         no: function() {
                             term.set_prompt(cmd_prompt);

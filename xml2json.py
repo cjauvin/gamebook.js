@@ -77,9 +77,8 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
         if item.tag == 'p':
             sect_paras.append(processPara(s))
         if item.tag == 'ul':
-            sect_paras.append(['(0) None'])
-            for i, li in enumerate(item, 1):
-                sect_paras.append(['(%s) %s' % (i, li.text)])
+            for li in item:
+                sect_paras.append(['* %s' % li.text])
             list_found = True
         elif item.tag == 'combat':
             e = {'name': item.find('.//enemy').text,
@@ -163,6 +162,8 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
                 del section['must_eat']
         if 'text' in cust_sect:
             section['text'] = cust_sect['text']
+        if 'n_items_to_pick' in cust_sect:
+            section['n_items_to_pick'] = cust_sect['n_items_to_pick']
         for custom_choice in custom['sections'][sect_id].get('choices', []):
             # no key to match here, so we got to match using choice.section (thus the need to search)
             #print custom_choice['section']
