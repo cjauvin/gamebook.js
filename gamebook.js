@@ -392,7 +392,8 @@ $(document).ready(function($) {
             var ac_sect = elems[0];
             var lim = elems[1];
             if (item.ac_section === ac_sect && action_chart[ac_sect].length === lim) {
-                print('Cannot add {0}: you already carry {1} {2}s..'.f(item.name, lim, elems[2]), 'blue');
+                var comm = item.hasOwnProperty('gold') ? 'buy' : 'take';
+                print('Cannot {0} {1}: you already carry {2} {3}s..'.f(comm, item.name, lim, elems[2]), 'blue');
                 if (offer_replacement) {
                     var opts = [{name:'None'}].concat(action_chart[ac_sect]);
                     $.each(opts, function(i, opt) {
@@ -428,6 +429,17 @@ $(document).ready(function($) {
         if (found) { return; }
 
         // normal case: add item
+
+        // need to buy?
+        if (item.hasOwnProperty('gold')) {
+            if (action_chart.gold >= item.gold) {
+                action_chart.gold -= item.gold;
+            } else {
+                print("You don't have enough Gold Crowns.", 'blue');
+                return;
+            }
+        }
+
         removeByName(item.name, data.sections[curr_section].items || []);
         sect.n_picked_items += 1;
 
@@ -787,6 +799,7 @@ $(document).ready(function($) {
 
     //------------------------------------------------------------------------------------------------------------
     doSpecialSection = function() {
+
         var sect = data.sections[curr_section];
         switch (curr_section) {
 
@@ -868,6 +881,14 @@ $(document).ready(function($) {
         case '144':
             action_chart.gold = 0;
             print('You have lost all your Gold.', 'blue');
+            doSection();
+            break;
+
+        case '150':
+            if (isInArray('Hunting', action_chart.kai_disciplines)) {
+                sect.must_eat = false;
+                print('You use your Kai Discipline of Hunting.', 'blue');
+            }
             doSection();
             break;
 
@@ -1044,7 +1065,7 @@ $(document).ready(function($) {
             }
 
             if (prev_section && data.sections[prev_section].hasOwnProperty('must_eat') && data.sections[prev_section].must_eat) {
-                print('You are hungry and thus lost some ENDURANCE.', 'blue');
+                print('You are hungry and lose ENDURANCE.', 'blue');
                 if (!updateEndurance(-3)) {
                     return;
                 }
@@ -1107,7 +1128,7 @@ $(document).ready(function($) {
                     }
                 });
             });
-        } else if (sect.choices.length === 1) {
+        } else if (sect.choices.length === 1 && !sect.hasOwnProperty('items')) {
             print(sect.choices[0].text);
             setConfirmMode({
                 prompt: '[[;#000;#ff0][continue y/n]]',
@@ -1123,7 +1144,7 @@ $(document).ready(function($) {
                 doSetupSequence();
             });
         } else {
-            var auto_found = false;
+            var auto_choice_found = false;
             $.each(sect.choices, function(i, choice) {
                 if (choice.hasOwnProperty('auto') && satisfiesChoiceRequirements(choice)) {
                     print(choice.text);
@@ -1132,12 +1153,12 @@ $(document).ready(function($) {
                             doSection(choice);
                         }
                     });
-                    auto_found = true;
+                    auto_choice_found = true;
                     return false;
                 }
             });
             // accept user input
-            if (!auto_found) {
+            if (!auto_choice_found) {
                 term.set_prompt(cmd_prompt);
             }
         }
@@ -1384,7 +1405,7 @@ $(document).ready(function($) {
                         } else {
                             action_chart[item.ac_section].remove(item);
                             updateEndurance();
-                            print('The item has been removed from your Action Chart.', 'blue');
+                            print('The {0} has been removed from your Action Chart.'.f(item.name), 'blue');
                         }
                         term.set_prompt(cmd_prompt);
                     }
@@ -1467,9 +1488,12 @@ $(document).ready(function($) {
             $.each(sect.items, function(i, item) {
                 // if auto mode is not set, add artificial (engine) choices to allow getting them
                 if (!item.hasOwnProperty('auto')) {
-                    var words = ['take'];
-                    words = words.concat(item.name.split(command_split_regexp));
-                    words = words.concat(item.words || []);
+                    var words = item.hasOwnProperty('gold') ? ['buy'] : ['take'];
+                    if (item.hasOwnProperty('words')) {
+                        words = words.concat(item.words);
+                    } else {
+                        words = words.concat(item.name.split(command_split_regexp));
+                    }
                     sect.choices.push({
                         is_artificial: true,
                         words: words,
@@ -1508,7 +1532,6 @@ $(document).ready(function($) {
                 });
                 $.each(cartesianProduct(v_syns), function(k, w_syns) {
                     w_syns = $.map(w_syns, function(u) { return u; }); // flatten in case a syn is itself a compound
-                    //w_syns = $.map(w_syns, function(s) { return s.toLowerCase(); });
                     choice_syn_matches[w_syns] = zeros(w_syns.length);
                 });
                 //console.log(choice_syn_matches);
@@ -1532,9 +1555,12 @@ $(document).ready(function($) {
                 // for compound words, make sure that all their matching bools are 1
                 // (by reducing their matching bool arrays)
                 var syn_matches = $.map(choice_syn_matches, function(match_bools, s) {
-                    return match_bools.reduce(function(b1, b2) { return b1 * b2; });
+                    // here the left part is reduced to 0 or 1, which we multiply by the size of the array,
+                    // to give more weight to compound words, in case there's a tie
+                    // (i.e. 'sword' vs 'short sword' items of section 181)
+                    return match_bools.reduce(function(b1, b2) { return b1 * b2; }) * match_bools.length;
                 });
-                // since only 1 synonym match is considered, take the max (which cannot be > 1)
+                // since only 1 synonym match is considered, take the max
                 n_choice_word_matches += Array.max(syn_matches);
             });
             choice_match_results.push([n_choice_word_matches, i]);
@@ -1542,13 +1568,13 @@ $(document).ready(function($) {
 
         choice_match_results.sort().reverse();
 
-        // no match, and more than one book (i.e. not artificially added) choices
+        // no match, and more than one real (i.e. not artificially added) choices
         if (choice_match_results[0][0] === 0) {
             print('This command does not apply to the current context.', 'blue');
             return;
         }
 
-        // ambiguous match: more than 2 and > 0
+        // ambiguous match: more than 1 and > 0
         if (choice_match_results.length >= 2 &&
             choice_match_results[0][0] === choice_match_results[1][0]) {
             print('Your command is ambiguous: try to reword it.', 'blue');
@@ -1588,42 +1614,17 @@ $(document).ready(function($) {
             });
         } else { // artificial/engine choice
             if (choice.hasOwnProperty('item')) {
-                if (choice.item.hasOwnProperty('gold')) {
-                    print('Buy the {0}?'.f(choice.item.name));
-                    setConfirmMode({
-                        yes: function() {
-                            if (action_chart.gold >= choice.item.gold) {
-                                var item = choice.item,
-                                ac_sect = choice.item.ac_section;
-                                // !!!
-                                if (ac_sect === 'weapons' && action_chart[ac_sect].length === 2) {
-                                    print("You are already carrying two weapons (use 'drop' if you really want it).", 'blue');
-                                } else {
-                                    action_chart[ac_sect].push(item);
-                                    action_chart.gold -= choice.item.gold;
-                                    print('The {0} was added to your Action Chart.'.f(item.name), 'blue');
-                                }
-                            } else {
-                                print("You don't have enough Gold Crowns.", 'blue');
-                            }
-                            term.set_prompt(cmd_prompt);
-                        },
-                        no: function() {
-                            term.set_prompt(cmd_prompt);
-                        }
-                    });
-                } else {
-                    print('Take the {0}?'.f(choice.item.name));
-                    setConfirmMode({
-                        yes: function() {
-                            addItem(choice.item);
-                            term.set_prompt(cmd_prompt);
-                        },
-                        no: function() {
-                            term.set_prompt(cmd_prompt);
-                        }
-                    });
-                }
+                print('{0} the {1}?'.f(choice.item.hasOwnProperty('gold') ? 'Buy' : 'Take',
+                                       choice.item.name));
+                setConfirmMode({
+                    yes: function() {
+                        addItem(choice.item);
+                        term.set_prompt(cmd_prompt);
+                    },
+                    no: function() {
+                        term.set_prompt(cmd_prompt);
+                    }
+                });
             } else {
                 doSpecialChoice(choice);
             }
@@ -1756,7 +1757,7 @@ $(document).ready(function($) {
                     action_chart.combat_skill = 10;
                     action_chart.endurance.initial = 20;
                     action_chart.endurance.current = 18;
-                    action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Sixth Sense'];
+                    action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Hunting'];
                     action_chart.weaponskill = 'Spear';
                     addItem({name: 'Quarterstaff',ac_section:'weapons'});
                     addItem({name: 'Short Sword', ac_section: 'weapons'});

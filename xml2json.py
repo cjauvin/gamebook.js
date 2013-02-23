@@ -32,7 +32,7 @@ for w in ['turn', 'wish']:
     stopwords.add(w)
 
 for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
-#for sect_elem in root.findall('.//section[@id="sect%s"]' % 91):
+#for sect_elem in root.findall('.//section[@id="sect%s"]' % 181):
     sect_id = sect_elem.find('.//title').text
     sect_paras = []
     choices = []
@@ -78,7 +78,9 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             sect_paras.append(processPara(s))
         if item.tag == 'ul':
             for li in item:
-                sect_paras.append(['* %s' % li.text])
+                lis = processPara(etree.tostring(li).strip())[0]
+                lis = re.sub('</?li>', '', lis)
+                sect_paras.append(['* %s' % lis])
             list_found = True
         elif item.tag == 'combat':
             e = {'name': item.find('.//enemy').text,
