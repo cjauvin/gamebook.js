@@ -50,30 +50,49 @@ $(document).ready(function($) {
     gamebook_url = 'fotw_generated.json',
     debug = true,
     data,
+    engine = this,
     synonyms = {},
     prev_section,
     curr_section = '1',
     visited_sections = [curr_section],
     autocompletion_enabled = true,
     // sequence parts
-    sequence_mode = {is_active: false,
-                     prompt: '[[;#000;#ff0][press any key]]',
-                     which: 'engine_intro',
-                     seq: [], seq_idx: 1},
+    sequence_mode = {
+        is_active: false,
+        prompt: '[[;#000;#ff0][press any key]]',
+        which: 'engine_intro',
+        seq: [],
+        seq_idx: 1
+    },
     // wait for a keypress
-    press_key_mode = {is_active: false,
-                      prompt: '[[;#000;#ff0][press any key]]',
-                      callback: $.noop},
+    press_key_mode = {
+        is_active: false,
+        prompt: '[[;#000;#ff0][press any key]]',
+        callback: $.noop
+    },
     // yes/no question interface
-    confirm_mode = {is_active: false,
-                    prompt: '[[;#000;#ff0][accept y/n]]',
-                    yes_callback: $.noop,
-                    no_callback: $.noop},
-    option_mode = {is_active: false,
-                   prompt: '[[;#000;#ff0][choose an item]]',
-                   range: [0, 9],
-                   callback: $.noop,
-                   accumulator: []},
+    confirm_mode = {
+        is_active: false,
+        prompt: '[[;#000;#ff0][accept y/n]]',
+        yes_callback: $.noop,
+        no_callback: $.noop
+    },
+    // ranged options (e.g. 0--9 or a--z input) interface
+    option_mode = {
+        is_active: false,
+        prompt: '[[;#000;#ff0][choose an item]]',
+        range: [48, 57], // i.e. 0--9, by default
+        callback: $.noop,
+        accumulator: []
+    },
+    // number input interface (any # of digits followed by ENTER)
+    number_input_mode = {
+        is_active: false,
+        prompt: '[[;#000;#ff0][enter a number]]',
+        default_prompt: '[[;#000;#ff0][enter a number]]',
+        callback: $.noop,
+        accumulator: ''
+    },
     term,
     command,
     command_split_regexp = /[^A-Za-z0-9'-]+/, // every nonalpha except "'" and "-"
@@ -233,8 +252,17 @@ $(document).ready(function($) {
     setOptionMode = function(conf) {
         option_mode.is_active = true;
         term.set_prompt(conf.hasOwnProperty('prompt') ? conf.prompt : option_mode.prompt);
-        option_mode.range = conf.range;
+        option_mode.range = conf.hasOwnProperty('range') ? conf.range : option_mode.range;
         option_mode.callback = conf.callback;
+    },
+
+    //------------------------------------------------------------------------------------------------------------
+    setNumberInputMode = function(conf) {
+        number_input_mode.is_active = true;
+        number_input_mode.prompt = conf.hasOwnProperty('prompt') ? conf.prompt : number_input_mode.default_prompt;
+        term.set_prompt(number_input_mode.prompt);
+        number_input_mode.callback = conf.callback;
+        number_input_mode.accumulator = '';
     },
 
     //------------------------------------------------------------------------------------------------------------
@@ -284,7 +312,7 @@ $(document).ready(function($) {
             str += ' - 4(NoWp)';
             val -= 4;
         }
-        // if in combat, check for a possible temporary modifier
+        // special case: if in combat, check for a possible temporary modifier
         if (sect.hasOwnProperty('combat')) {
             val += sect.combat.combat_skill || 0;
         }
@@ -549,7 +577,6 @@ $(document).ready(function($) {
 
         case '7':
         case '270':
-            console.log('here');
             var evasion_choice, combat_ratio,
             doCombatRound = function() {
                 var r = pickRandomNumber(),
@@ -560,7 +587,7 @@ $(document).ready(function($) {
                 pts = combat_results_table[r][s];
                 if (pts[0] === 'k') { pts[0] = enemy.endurance; }
                 if (pts[1] === 'k') { pts[1] = action_chart.endurance.current; }
-                if (enemy.hasOwnProperty('is_undead')) { pts[0] *= 2; }
+                if (enemy.hasOwnProperty('double_damage')) { pts[0] *= 2; }
                 enemy.endurance -= Math.min(pts[0], enemy.endurance);
                 action_chart.endurance.current -= Math.min(pts[1], action_chart.endurance.current);
                 print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], action_chart.endurance.current), 'red');
@@ -573,6 +600,11 @@ $(document).ready(function($) {
                         prompt: '[[;#000;#ff0][continue y/n]]',
                         yes: function() {
                             doSection(win_choice);
+                        },
+                        no: function() {
+                            // only keep the combat win choice
+                            sect.choices = [win_choice];
+                            term.set_prompt(cmd_prompt);
                         }
                     });
                     return false;
@@ -587,7 +619,7 @@ $(document).ready(function($) {
             } else {
                 combat_ratio = calculateCombatSkill(enemy).val - enemy.combat_skill;
                 if (round === 1) {
-                    print('Your Combat Ratio is {0}'.f(combat_ratio), 'red');
+                    print('Your Combat Ratio is now {0}'.f(combat_ratio), 'red');
                 }
             }
 
@@ -627,7 +659,7 @@ $(document).ready(function($) {
 
         case '60':
             var evasion_choice,
-            combat_ratio = (calculateCombatSkill(enemy).val + 2) - enemy.combat_skill;
+            combat_ratio = (calculateCombatSkill(enemy).val + 2) - enemy.combat_skill,
             doCombatRound = function() {
                 var r = pickRandomNumber(),
                 s, pts, alive, win_choice;
@@ -638,7 +670,7 @@ $(document).ready(function($) {
                 if (pts[0] === 'k') { pts[0] = enemy.endurance; }
                 if (pts[1] === 'k') { pts[1] = action_chart.endurance.current; }
                 if (round < 2) { pts[1] = 0; } // special aspect
-                if (enemy.hasOwnProperty('is_undead')) { pts[0] *= 2; }
+                if (enemy.hasOwnProperty('double_damage')) { pts[0] *= 2; }
                 enemy.endurance -= Math.min(pts[0], enemy.endurance);
                 action_chart.endurance.current -= Math.min(pts[1], action_chart.endurance.current);
                 print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], action_chart.endurance.current), 'red');
@@ -651,6 +683,11 @@ $(document).ready(function($) {
                         prompt: '[[;#000;#ff0][continue y/n]]',
                         yes: function() {
                             doSection(win_choice);
+                        },
+                        no: function() {
+                            // only keep the combat win choice
+                            sect.choices = [win_choice];
+                            term.set_prompt(cmd_prompt);
                         }
                     });
                     return false;
@@ -696,6 +733,70 @@ $(document).ready(function($) {
             }
             break;
 
+        case '276':
+            var evasion_choice,
+            combat_ratio = calculateCombatSkill(enemy).val - enemy.combat_skill,
+            doCombatRound = function() {
+                var r = pickRandomNumber(),
+                s, pts, alive, win_choice;
+                $.each(combat_results_ranges, function(i, range) {
+                    if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
+                });
+                pts = combat_results_table[r][s];
+                if (pts[0] === 'k') { pts[0] = enemy.endurance; }
+                if (pts[1] === 'k') { pts[1] = action_chart.endurance.current; }
+                if (enemy.hasOwnProperty('double_damage')) { pts[0] *= 2; }
+                enemy.endurance -= Math.min(pts[0], enemy.endurance);
+                action_chart.endurance.current -= Math.min(pts[1], action_chart.endurance.current);
+                print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], action_chart.endurance.current), 'red');
+                if (enemy.endurance <= 0) {
+                    action_chart.endurance.current = sect.initial_endurance;
+                    print('You have won.', 'red');
+                    win_choice = sect.choices[2];
+                    print('({0})'.f(win_choice.text));
+                    setConfirmMode({
+                        prompt: '[[;#000;#ff0][continue y/n]]',
+                        yes: function() {
+                            doSection(win_choice);
+                        },
+                        no: function() {
+                            sect.choices = [win_choice];
+                            term.set_prompt(cmd_prompt);
+                        }
+                    });
+                    return false;
+                } else if (action_chart.endurance.current === 0) {
+                    action_chart.endurance.current = sect.initial_endurance;
+                    print('You have lost.', 'red');
+                    lost_choice = sect.choices[1];
+                    print('({0})'.f(lost_choice.text));
+                    setConfirmMode({
+                        prompt: '[[;#000;#ff0][continue y/n]]',
+                        yes: function() {
+                            doSection(lost_choice);
+                        },
+                        no: function() {
+                            sect.choices = [lost_choice];
+                            term.set_prompt(cmd_prompt);
+                        }
+                    });
+                    return false;
+                }
+                return true;
+            };
+
+            if (round === 0) {
+                sect.initial_endurance = action_chart.endurance.current;
+                print('Your Combat Ratio is {0}'.f(combat_ratio), 'red');
+            }
+
+            setPressKeyMode(function() {
+                if (doCombatRound()) {
+                    doSpecialCombat(enemy, round + 1);
+                }
+            });
+            break;
+
         default:
             print('Error: special combat section {0} is not implemented.'.f(curr_section), 'blue');
         };
@@ -705,7 +806,7 @@ $(document).ready(function($) {
     doCombat = function(enemy, round) {
         var sect = data.sections[curr_section],
         evasion_choice,
-        combat_ratio = calculateCombatSkill(enemy).val - enemy.combat_skill;
+        combat_ratio = calculateCombatSkill(enemy).val - enemy.combat_skill,
         doCombatRound = function() {
             var r = pickRandomNumber(),
             s, pts, alive, win_choice;
@@ -715,7 +816,7 @@ $(document).ready(function($) {
             pts = combat_results_table[r][s];
             if (pts[0] === 'k') { pts[0] = enemy.endurance; }
             if (pts[1] === 'k') { pts[1] = action_chart.endurance.current; }
-            if (enemy.hasOwnProperty('is_undead')) { pts[0] *= 2; }
+            if (enemy.hasOwnProperty('double_damage')) { pts[0] *= 2; }
             if (enemy.hasOwnProperty('has_mindforce') && !isInArray('Mindshield', action_chart.kai_disciplines)) {
                 pts[1] += 2;
             }
@@ -736,7 +837,7 @@ $(document).ready(function($) {
                         },
                         no: function() {
                             // only keep the combat win choice
-                            data.sections[curr_section].choices = [win_choice];
+                            sect.choices = [win_choice];
                             term.set_prompt(cmd_prompt);
                         }
                     });
@@ -919,39 +1020,69 @@ $(document).ready(function($) {
             doSection();
             break;
 
-        case '308':
-            if (action_chart.gold < 3) {
+        case '238':
+            sect.choices[0].is_artificial = true; // this choice is restricted to losing so we
+            if (!sect.hasOwnProperty('gain')) {
+                sect.gain = 0; // max of 40
+            }
+            if (action_chart.gold === 0) {        // don't want to offer it
                 print("You don't have enough Gold Crowns to play.", 'blue');
                 doSection();
-            } else {
-                setConfirmMode({
-                    prompt: '[[;#000;#ff0][play y/n]]',
-                    yes: function() {
-                        var rolls = [],
-                        i, r1, r2, msg;
-                        for (i = 0; i < 6; i += 2) {
-                            r1 = pickRandomNumber();
-                            r2 = pickRandomNumber();
-                            rolls.push([r1, r2, (r1 + r2 === 0) ? Number.POSITIVE_INFINITY : (r1 + r2)]);
-                        }
-                        msg = 'You roll {0}-{1}, the first player {2}-{3} and the second player {4}-{5}\n'.f(rolls[0][0], rolls[0][1], rolls[1][0],
-                                                                                                                 rolls[1][1], rolls[2][0], rolls[2][1]);
-                        // note that draw is not implemented (it's not really specified in the text anyway)
-                        if (rolls[0][2] > rolls[1][2] && rolls[0][2] > rolls[2][2]) {
-                            msg += 'You win 3 Gold Crowns!';
-                            action_chart.gold += 3;
-                        } else {
-                            msg += 'You lose 3 Gold Crowns.';
-                            action_chart.gold -= Math.min(action_chart.gold, 3);
-                        }
-                        print(msg, 'blue');
-                        doSpecialSection();
-                    },
-                    no: function() {
-                        doSection();
-                    }
-                });
+                return;
             }
+            setConfirmMode({
+                prompt: '[[;#000;#ff0][play y/n]]',
+                n_digits: 2,
+                yes: function() {
+                    //setNumberInputMode({
+                    setOptionMode({
+                        prompt: '[[;#000;#ff0][how much gold to bet]]',
+                        callback: function(n_golds) {
+                            if (n_golds > action_chart.gold) {
+                                print("You don't have that much Gold Crowns.", 'blue');
+                                doSpecialSection();
+                                return;
+                            }
+                            setOptionMode({
+                                prompt: '[[;#000;#ff0][on what number]]',
+                                callback: function(n) {
+                                    var r = pickRandomNumber();
+                                    var g = 0;
+                                    if (n === r) {
+                                        g = n_golds * 8;
+                                    } else if (isInArray(Math.abs(r - n), [1, 9])) { // 0 and 9 are adjacent
+                                        g = n_golds * 5;
+                                    } else {
+                                        g = -n_golds;
+                                    }
+                                    if (g > 0) {
+                                        if (sect.gain + g >= 40) {
+                                            action_chart.gold += (40 - sect.gain);
+                                            print('The ball falls on {0}: you win {1} Gold Crowns ({2} left).'.f(r, (40 - sect.gain), action_chart.gold), 'blue');
+                                            print('You have gained the table maximum.', 'blue');
+                                            doSection();
+                                            return;
+                                        }
+                                        sect.gain += g;
+                                        action_chart.gold += g;
+                                        print('The ball falls on {0}: you win {1} Gold Crowns ({2} left).'.f(r, g, action_chart.gold), 'blue');
+                                    } else {
+                                        action_chart.gold += g;
+                                        print('The ball falls on {0}: you lose {1} Gold Crowns ({2} left).'.f(r, -g, action_chart.gold), 'blue');
+                                        if (action_chart.gold === 0) {
+                                            delete sect.choices[0]['is_artificial'];
+                                            sect.choices = [sect.choices[0]];
+                                            doSection();
+                                            return;
+                                        }
+                                    }
+                                    doSpecialSection();
+                                }
+                            });
+                        }
+                    });
+                }
+            });
             break;
 
         case '240':
@@ -961,6 +1092,67 @@ $(document).ready(function($) {
                 updateEndurance(Math.round((calculateEndurance().val - action_chart.endurance.current) / 2));
             }
             print('Healing..', 'blue');
+            doSection();
+            break;
+
+        case '276':
+            if (isInArray('Mindblast', action_chart.kai_disciplines)) {
+                sect.choices[0].auto = true;
+                sect.choices = [sect.choices[0]];
+                delete sect['combat'];
+            }
+            doSection();
+            break;
+
+        case '308':
+            if (action_chart.gold < 3) {
+                print("You don't have enough Gold Crowns to play.", 'blue');
+                doSection();
+                return;
+            }
+            setConfirmMode({
+                prompt: '[[;#000;#ff0][play y/n]]',
+                yes: function() {
+                    var rolls = [],
+                    i, r1, r2, msg;
+                    for (i = 0; i < 6; i += 2) {
+                        r1 = pickRandomNumber();
+                        r2 = pickRandomNumber();
+                        rolls.push([r1, r2, (r1 + r2 === 0) ? Number.POSITIVE_INFINITY : (r1 + r2)]);
+                    }
+                    msg = 'You roll {0}-{1}, the first player {2}-{3} and the second player {4}-{5}\n'.f(rolls[0][0], rolls[0][1], rolls[1][0],
+                                                                                                         rolls[1][1], rolls[2][0], rolls[2][1]);
+                    // note that draw is not implemented (it's not really specified in the text anyway)
+                    if (rolls[0][2] > rolls[1][2] && rolls[0][2] > rolls[2][2]) {
+                        msg += 'You win 3 Gold Crowns!';
+                        action_chart.gold += 3;
+                    } else {
+                        msg += 'You lose 3 Gold Crowns.';
+                        action_chart.gold -= Math.min(action_chart.gold, 3);
+                    }
+                    print(msg, 'blue');
+                    doSpecialSection();
+                }
+            });
+            break;
+
+        case '313':
+            removeByName('Magic Spear', action_chart.special_items);
+            print('You have lost the Magic Spear.', 'blue');
+            doSection();
+            break;
+
+        case '327':
+            var g = Math.min(6, action_chart.gold);
+            action_chart.gold -= g;
+            print('(You actually obtain the papers for {0} Gold Crowns).'.f(g), 'blue');
+            doSection();
+            break;
+
+        case '337':
+            action_chart.weapons = [];
+            action_chart.backpack_items = [];
+            print('You have lost your Weapons and Backpack Items.', 'blue');
             doSection();
             break;
 
@@ -1001,6 +1193,11 @@ $(document).ready(function($) {
             print('You pay 1 Gold Crown.', 'blue');
             break;
 
+        case '349':
+            removeByName('Magic Spear', action_chart.special_items);
+            print('You have lost your Magic Spear', 'blue');
+            break;
+
         default:
             print('Error: special choice for section {0} is not implemented.'.f(curr_section), 'blue');
         };
@@ -1014,7 +1211,8 @@ $(document).ready(function($) {
             return;
         }
 
-        if (confirm_mode.is_active || option_mode.is_active || press_key_mode.is_active) {
+        if (confirm_mode.is_active || option_mode.is_active ||
+            press_key_mode.is_active || number_input_mode.is_active) {
             return;
         }
 
@@ -1072,9 +1270,19 @@ $(document).ready(function($) {
 
             if (prev_section && data.sections[prev_section].hasOwnProperty('must_eat') && data.sections[prev_section].must_eat) {
                 print('You are hungry and lose ENDURANCE.', 'blue');
-                if (!updateEndurance(-3)) {
+                // must_eat is possibly an int, to specify a endurance penalty different than the default (-3)
+                var e = typeof data.sections[prev_section].must_eat === 'number' ? data.sections[prev_section].must_eat : -3;
+                console.log(e);
+                if (!updateEndurance(e)) {
                     return;
                 }
+            }
+
+            // option to remove choices for which satisfiesChoiceRequirements is false
+            if (sect.hasOwnProperty('trim_choices')) {
+                sect.choices = $.grep(sect.choices, function(choice) {
+                    return satisfiesChoiceRequirements(choice);
+                });
             }
 
             if (sect.hasOwnProperty('is_special')) {
@@ -1153,7 +1361,8 @@ $(document).ready(function($) {
         } else {
             var auto_choice_found = false;
             $.each(sect.choices, function(i, choice) {
-                if (choice.hasOwnProperty('auto') && satisfiesChoiceRequirements(choice)) {
+                if (choice.hasOwnProperty('auto') &&
+                    satisfiesChoiceRequirements(choice)) {
                     print(choice.text);
                     setConfirmMode({
                         yes: function() {
@@ -1240,7 +1449,6 @@ $(document).ready(function($) {
         } else if (sequence_mode.seq_idx === 13) {
             sequence_mode.is_active = false;
             setOptionMode({
-                range: [48, 57],
                 prompt: '[[;#000;#ff0][choose an item ({0} left)]]'.f(5 - action_chart.kai_disciplines.length),
                 callback: function(i) {
                     var disc = data.setup.disciplines[i],
@@ -1276,7 +1484,6 @@ $(document).ready(function($) {
         } else if (sequence_mode.seq_idx === 15) {
             sequence_mode.is_active = false;
             setOptionMode({
-                range: [48, 57],
                 prompt: '[[;#000;#ff0][choose an item]] (' + (2 - setup_equipment_tmp.length) + ' left)',
                 callback: function(i) {
                     var item = data.setup.equipment[i],
@@ -1462,7 +1669,7 @@ $(document).ready(function($) {
                         removeByName('Laumspur Meal', action_chart.backpack_items);
                         data.sections[curr_section].must_eat = false;
                         updateEndurance(3);
-                        print('You eat a Laumspur Meal (and gain 3 ENDURANCE points).', 'blue');
+                        print('You eat a Laumspur Meal (and gain ENDURANCE).', 'blue');
                     }
                 } else {
                     removeByName('Meal', action_chart.backpack_items);
@@ -1497,7 +1704,16 @@ $(document).ready(function($) {
                 // if auto mode is not set, add artificial (engine) choices to allow getting them
                 if (!item.hasOwnProperty('auto')) {
                     if (isInArray(item.name, single_item_names)) { return true; }
-                    var words = item.hasOwnProperty('gold') ? ['buy'] : ['take'];
+                    var words = [];
+                    if (item.hasOwnProperty('sellable')) {
+                        words.push('sell');
+                    }
+                    if (item.hasOwnProperty('gold')) {
+                        words.push('buy');
+                    }
+                    if (words.length === 0) {
+                        words.push('take');
+                    }
                     if (item.hasOwnProperty('words')) {
                         words = words.concat(item.words);
                     } else {
@@ -1624,17 +1840,38 @@ $(document).ready(function($) {
             });
         } else { // artificial/engine choice
             if (choice.hasOwnProperty('item')) {
-                print('{0} the {1}?'.f(choice.item.hasOwnProperty('gold') ? 'Buy' : 'Take',
-                                       choice.item.name));
-                setConfirmMode({
-                    yes: function() {
-                        addItem(choice.item);
+                var item = choice.item;
+                if (command.match(/^sell/) && item.hasOwnProperty('sellable')) {
+                    if (!isInArray(item.name, getNames(action_chart[item.ac_section]))) {
+                        print("You don't possess that item.", 'blue');
                         term.set_prompt(cmd_prompt);
-                    },
-                    no: function() {
-                        term.set_prompt(cmd_prompt);
+                        return;
                     }
-                });
+                    print('Sell your {0}?'.f(item.name), 'blue');
+                    setConfirmMode({
+                        yes: function() {
+                            removeByName(item.name, action_chart[item.ac_section]);
+                            action_chart.gold += item.sellable;
+                            print('You gain {0} Gold Crowns.'.f(item.sellable), 'blue');
+                            term.set_prompt(cmd_prompt);
+                        },
+                        no: function() {
+                            term.set_prompt(cmd_prompt);
+                        }
+                    });
+                } else {
+                    print('{0} the {1}?'.f(item.hasOwnProperty('gold') ? 'Buy' : 'Take',
+                                           item.name));
+                    setConfirmMode({
+                        yes: function() {
+                            addItem(item);
+                            term.set_prompt(cmd_prompt);
+                        },
+                        no: function() {
+                            term.set_prompt(cmd_prompt);
+                        }
+                    });
+                }
             } else {
                 doSpecialChoice(choice);
             }
@@ -1731,11 +1968,29 @@ $(document).ready(function($) {
                 return false;
             }
 
+            if (number_input_mode.is_active) {
+                // 0: 48, 9:57
+                if (event.which >= 48 && event.which <= 57) {
+                    number_input_mode.accumulator += (event.which - 48).toString();
+                    term.set_prompt(number_input_mode.prompt + number_input_mode.accumulator);
+                } else if (event.which === 13) { // enter
+                    if (number_input_mode.accumulator.length >= 1) {
+                        number_input_mode.is_active = false;
+                        number_input_mode.callback(parseInt(number_input_mode.accumulator, 10));
+                        term.consumeSingleKeypress(); // FF keypress/keydown bug
+                    }
+                } else if (event.which === 8) {
+                    number_input_mode.accumulator = number_input_mode.accumulator.substring(0, number_input_mode.accumulator.length - 1);
+                    term.set_prompt(number_input_mode.prompt + number_input_mode.accumulator);
+                }
+                return false;
+            }
+
         },
 
         keypress: function(event, term) {
             if (sequence_mode.is_active || confirm_mode.is_active ||
-                option_mode.is_active || press_key_mode.is_active) {
+                option_mode.is_active || press_key_mode.is_active || number_input_mode.is_active) {
                 return false;
             }
         },
@@ -1767,17 +2022,17 @@ $(document).ready(function($) {
                     action_chart.combat_skill = 10;
                     action_chart.endurance.initial = 20;
                     action_chart.endurance.current = 18;
-                    action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Tracking'];
+                    action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Hunting'];
                     action_chart.weaponskill = 'Spear';
                     //addItem({name: 'Quarterstaff',ac_section:'weapons'});
-                    //addItem({name: 'Short Sword', ac_section: 'weapons'});
+                    addItem({name: 'Short Sword', ac_section: 'weapons'});
                     //action_chart.backpack_items.push(data.setup.equipment[5]); // healing potion
                     for (var i = 0; i < 8; i++) { // fill with Meals
-                        addItem({name: 'Meal', ac_section: 'backpack_items'});
+                        //addItem({name: 'Meal', ac_section: 'backpack_items'});
                     }
                     //action_chart.backpack_items.push({name: 'Meal', ac_section: 'backpack_items'})
                     action_chart.special_items.push(data.setup.equipment[3]); // chainmail
-                    action_chart.gold = 10;
+                    action_chart.gold = 3;
                     doSection({section:location.search.match(/sect=(\d+)/) ? location.search.match(/sect=(\d+)/)[1] : '1'});
                 } else {
                     initSequenceMode(engine_intro, 'engine_intro');

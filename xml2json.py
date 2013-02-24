@@ -134,7 +134,7 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
     if combat:
         if undead_found or sommerswerd_found:
             assert len(combat['enemies']) == 1
-            combat['enemies'][0]['is_undead'] = True
+            combat['enemies'][0]['double_damage'] = True
         if immune_to_mindblast_found:
             assert len(combat['enemies']) == 1
             combat['enemies'][0]['immune'] = "Mindblast"
@@ -165,13 +165,15 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             section['options'] = cust_sect['options']
         if 'must_eat' in cust_sect:
             if cust_sect['must_eat']:
-                section['must_eat'] = True
+                section['must_eat'] = cust_sect['must_eat'] # possibly a int
             else:
                 del section['must_eat']
         if 'text' in cust_sect:
             section['text'] = cust_sect['text']
         if 'n_items_to_pick' in cust_sect:
             section['n_items_to_pick'] = cust_sect['n_items_to_pick']
+        if 'trim_choices' in cust_sect:
+            section['trim_choices'] = True
         for custom_choice in custom['sections'][sect_id].get('choices', []):
             # no key to match here, so we got to match using choice.section (thus the need to search)
             #print custom_choice['section']
