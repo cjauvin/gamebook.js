@@ -5,6 +5,7 @@ from pprint import pprint
 from lxml import etree
 from nltk.corpus import stopwords
 
+width = 80
 
 def processPara(para):
     para = re.sub('</?p/?>', '', para)
@@ -19,7 +20,8 @@ def processPara(para):
     para = re.sub('</?quote/?>', "\"", para)
     para = re.sub('</?onomatopoeia>', '', para)
     para = re.sub('<footref.*?/>', '', para)
-    return textwrap.wrap(para, 80)
+    para = re.sub('</?signpost>', '', para)
+    return textwrap.wrap(para, width)
 
 sections = OrderedDict()
 custom = json.load(open('fotw_custom.json'))
@@ -76,6 +78,10 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             mindforce_found = True
         if item.tag == 'p':
             sect_paras.append(processPara(s))
+        if item.tag == 'signpost':
+            s = processPara(s)[0]
+            spacer = ' ' * ((width - len(s)) / 2)
+            sect_paras.append([spacer + s])
         if item.tag == 'ul':
             for li in item:
                 lis = processPara(etree.tostring(li).strip())[0]

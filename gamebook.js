@@ -351,7 +351,7 @@ $(document).ready(function($) {
 
         var sect = data.sections[curr_section];
 
-        if (sect.n_picked_items >= sect.n_items_to_pick) {
+        if ((sect.n_picked_items + (item.hasOwnProperty('item_worth') ? item['item_worth'] : 1)) > sect.n_items_to_pick) {
             print('You already picked {0} items.'.f(sect.n_picked_items), 'blue');
             return;
         }
@@ -363,10 +363,11 @@ $(document).ready(function($) {
             } else {
                 action_chart.has_backpack = true;
                 action_chart.backpack_items = [];
-                sect.n_picked_items += 1;
+                sect.n_picked_items += item.hasOwnProperty('item_worth') ? item['item_worth'] : 1;
             }
             return;
         }
+
         if (item.ac_section === 'backpack_items' && !action_chart.has_backpack) {
             print('You need a Backpack for this!', 'blue');
             if (item.hasOwnProperty('is_consumable')) {
@@ -387,13 +388,13 @@ $(document).ready(function($) {
         }
 
         // AC weapons and backpack items size limitation special cases
-        var found = false;
+        var ac_sect_full = false;
         $.each([['weapons', 2, 'weapon'], ['backpack_items', 8, 'backpack item']], function(i, elems) {
             var ac_sect = elems[0];
             var lim = elems[1];
             if (item.ac_section === ac_sect && action_chart[ac_sect].length === lim) {
                 var comm = item.hasOwnProperty('gold') ? 'buy' : 'take';
-                print('Cannot {0} {1}: you already carry {2} {3}s..'.f(comm, item.name, lim, elems[2]), 'blue');
+                print('Cannot {0} {1}: you already carry {2} {3}s.'.f(comm, item.name, lim, elems[2]), 'blue');
                 if (offer_replacement) {
                     var opts = [{name:'None'}].concat(action_chart[ac_sect]);
                     $.each(opts, function(i, opt) {
@@ -417,18 +418,18 @@ $(document).ready(function($) {
                             action_chart[ac_sect].push(item);
                             // remove new item from section
                             removeByName(item.name, data.sections[curr_section].items || []);
-                            sect.n_picked_items += 1;
+                            sect.n_picked_items += item.hasOwnProperty('item_worth') ? item['item_worth'] : 1;
                             doSection();
                         }
                     });
                 }
-                found = true;
+                ac_sect_full = true;
                 return false; // get out of $.each
             }
         });
-        if (found) { return; }
+        if (ac_sect_full) { return; }
 
-        // normal case: add item
+        // from here: normal case, i.e. add item
 
         // need to buy?
         if (item.hasOwnProperty('gold')) {
@@ -441,24 +442,14 @@ $(document).ready(function($) {
         }
 
         removeByName(item.name, data.sections[curr_section].items || []);
-        sect.n_picked_items += 1;
+        sect.n_picked_items += item.hasOwnProperty('item_worth') ? item['item_worth'] : 1;
 
-        // special case here for meals, which can be sold in packs (of more than 1)
-        // we stuff as many as we can in the remaining space!
-        if (item.hasOwnProperty('n')) {
-            for (var i = 0; i < item.n; i++) {
-                if (item.ac_section === 'backpack_items' && action_chart.backpack_items.length === 8) { return; }
-                action_chart[item.ac_section].push(item);
-                print('The {0} has been added to your Action Chart.'.f(item.name), 'blue');
-            }
+        if (item.ac_section === 'gold') {
+            action_chart.gold += item.value;
+            print('The Gold has been added to your Action Chart.', 'blue');
         } else {
-            if (item.ac_section === 'gold') {
-                action_chart.gold += item.value;
-                print('The Gold has been added to your Action Chart.', 'blue');
-            } else {
-                action_chart[item.ac_section].push(item);
-                print('The {0} has been added to your Action Chart.'.f(item.name), 'blue');
-            }
+            action_chart[item.ac_section].push(item);
+            print('The {0} has been added to your Action Chart.'.f(item.name), 'blue');
         }
     },
 
@@ -1091,6 +1082,7 @@ $(document).ready(function($) {
             return;
         }
 
+        // auto items only
         if (sect.hasOwnProperty('items')) {
             var found_auto_item = false;
             $.each(sect.items, function(i, item) {
@@ -1485,15 +1477,18 @@ $(document).ready(function($) {
 
         // if items are present.. (*)
         if (sect.hasOwnProperty('items')) {
+            var single_item_names = []; // avoid repetitions when there are identical items offered
             $.each(sect.items, function(i, item) {
                 // if auto mode is not set, add artificial (engine) choices to allow getting them
                 if (!item.hasOwnProperty('auto')) {
+                    if (isInArray(item.name, single_item_names)) { return true; }
                     var words = item.hasOwnProperty('gold') ? ['buy'] : ['take'];
                     if (item.hasOwnProperty('words')) {
                         words = words.concat(item.words);
                     } else {
                         words = words.concat(item.name.split(command_split_regexp));
                     }
+                    single_item_names.push(item.name);
                     sect.choices.push({
                         is_artificial: true,
                         words: words,
@@ -1759,11 +1754,11 @@ $(document).ready(function($) {
                     action_chart.endurance.current = 18;
                     action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Hunting'];
                     action_chart.weaponskill = 'Spear';
-                    addItem({name: 'Quarterstaff',ac_section:'weapons'});
-                    addItem({name: 'Short Sword', ac_section: 'weapons'});
+                    //addItem({name: 'Quarterstaff',ac_section:'weapons'});
+                    //addItem({name: 'Short Sword', ac_section: 'weapons'});
                     //action_chart.backpack_items.push(data.setup.equipment[5]); // healing potion
                     for (var i = 0; i < 8; i++) { // fill with Meals
-                        //addItem({name: 'Meal', ac_section: 'backpack_items'});
+                        addItem({name: 'Meal', ac_section: 'backpack_items'});
                     }
                     //action_chart.backpack_items.push({name: 'Meal', ac_section: 'backpack_items'})
                     action_chart.special_items.push(data.setup.equipment[3]); // chainmail
