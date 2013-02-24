@@ -50,11 +50,7 @@ $(document).ready(function($) {
     gamebook_url = 'fotw_generated.json',
     debug = true,
     data,
-    engine = this,
     synonyms = {},
-    prev_section,
-    curr_section = '1',
-    visited_sections = [curr_section],
     autocompletion_enabled = true,
     // sequence parts
     sequence_mode = {
@@ -108,6 +104,7 @@ $(document).ready(function($) {
         "'choices'    : (or 'cheat') reveal the set of choices for the current section\n" +
         "'auto'       : toggle word autocompletion on/off\n" +
         "'again'      : reprint the current section\n" +
+        "'save'/'load': save and restore the game state at any point\n" +
         "'restart'    : restart the game (including setup)\n" +
         "'clear'      : clear the screen\n",
 
@@ -120,6 +117,8 @@ $(document).ready(function($) {
     // *   *
     stars = new Array(33).join(' ') + '*\n' + new Array(31).join(' ') + '*   *',
 
+    //------------------------------------------------------------------------------------------------------------
+    // these are the only variables that keep track of the state
     action_chart = {
         combat_skill: 0,
         endurance: {
@@ -134,6 +133,11 @@ $(document).ready(function($) {
         special_items: [{name: 'Map', ac_section: 'special_items'},
                         {name: 'Seal of Hammerdal', ac_section: 'special_items'}]
     },
+
+    prev_section,
+    curr_section = '1',
+    visited_sections = [curr_section],
+    //------------------------------------------------------------------------------------------------------------
 
     initial_ac = $.extend(true, {}, action_chart),
     setup_equipment_tmp = [],
@@ -1228,7 +1232,9 @@ $(document).ready(function($) {
                     print('You gain ENDURANCE.', 'blue');
                 }
             }
-            visited_sections.push(curr_section);
+            if (!isInArray(curr_section, visited_sections)) {
+                visited_sections.push(curr_section);
+            }
             if (choice.hasOwnProperty('is_special')) {
                 doSpecialChoice(choice);
             }
@@ -1286,7 +1292,6 @@ $(document).ready(function($) {
             }
 
             if (sect.hasOwnProperty('is_special')) {
-                //sect.is_special = false; // to avoid redoing it next time
                 doSpecialSection();
                 return;
             }
@@ -1559,6 +1564,30 @@ $(document).ready(function($) {
                     restart();
                 }
             });
+            return;
+        }
+
+        if (command === 'save') {
+            localStorage['action_chart'] = JSON.stringify(action_chart);
+            localStorage['prev_section'] = JSON.stringify(prev_section);
+            localStorage['curr_section'] = JSON.stringify(curr_section);
+            localStorage['visited_sections'] = JSON.stringify(visited_sections);
+            print("The game state was saved (use 'load' to restore it at any moment).", 'blue');
+            return;
+        }
+
+        if (command === 'load') {
+            if (localStorage['action_chart'] && localStorage['prev_section'] &&
+                localStorage['curr_section'] && localStorage['visited_sections']) {
+                action_chart = JSON.parse(localStorage['action_chart']);
+                prev_section = JSON.parse(localStorage['prev_section']);
+                curr_section = JSON.parse(localStorage['curr_section']);
+                visited_sections = JSON.parse(localStorage['visited_sections']);
+                print("The previous game state was restored.", 'blue');
+                doSection();
+            } else {
+                print('There is no saved state to restore.', 'blue');
+            }
             return;
         }
 

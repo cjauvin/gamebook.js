@@ -105,8 +105,8 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
     if rnt_found and re.search('\d-\d', choices[0]['text']):
         is_random_pick = True
         for choice in choices:
-            if re.search('(\d)-(\d)', choice['text']):
-                choice['range'] = [int(s) for s in re.search('(\d)-(\d)', choice['text']).groups()]
+            if re.search('(\d+)-(\d+)', choice['text']):
+                choice['range'] = [int(s) for s in re.search('(\d+)-(\d+)', choice['text']).groups()]
             else:
                 n = int(re.search('(\d)', choice['text']).group(1))
                 choice['range'] = [n, n]
