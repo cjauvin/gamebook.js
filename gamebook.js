@@ -357,14 +357,8 @@ $(document).ready(function($) {
         }
 
         // backpack special cases
-        if (item.name === 'Backpack') {
-            if (action_chart.has_backpack) {
-                print('You already have a Backpack..', 'blue');
-            } else {
-                action_chart.has_backpack = true;
-                action_chart.backpack_items = [];
-                sect.n_picked_items += item.hasOwnProperty('item_worth') ? item['item_worth'] : 1;
-            }
+        if (item.name === 'Backpack' && action_chart.has_backpack) {
+            print('You already have a Backpack..', 'blue');
             return;
         }
 
@@ -383,7 +377,7 @@ $(document).ready(function($) {
                 return;
             }
             // remove item that triggered addItem, to avoid coming back
-            removeByName(item.name, data.sections[curr_section].items || []);
+            //removeByName(item.name, data.sections[curr_section].items || []);
             return;
         }
 
@@ -406,7 +400,7 @@ $(document).ready(function($) {
                         callback: function(i) {
                             if (i === 0) { // none picked
                                 // trick: remove item that triggered addItem, to avoid coming back
-                                removeByName(item.name, data.sections[curr_section].items || []);
+                                //removeByName(item.name, data.sections[curr_section].items || []);
                                 doSection();
                                 return;
                             }
@@ -444,7 +438,11 @@ $(document).ready(function($) {
         removeByName(item.name, data.sections[curr_section].items || []);
         sect.n_picked_items += item.hasOwnProperty('item_worth') ? item['item_worth'] : 1;
 
-        if (item.ac_section === 'gold') {
+        if (item.name === 'Backpack') {
+            action_chart.has_backpack = true;
+            action_chart.backpack_items = [];
+            print('You now carry a Backpack.', 'blue');
+        } else if (item.ac_section === 'gold') {
             action_chart.gold += item.value;
             print('The Gold has been added to your Action Chart.', 'blue');
         } else {
@@ -550,6 +548,8 @@ $(document).ready(function($) {
         switch (curr_section) {
 
         case '7':
+        case '270':
+            console.log('here');
             var evasion_choice, combat_ratio,
             doCombatRound = function() {
                 var r = pickRandomNumber(),
@@ -794,6 +794,32 @@ $(document).ready(function($) {
         var sect = data.sections[curr_section];
         switch (curr_section) {
 
+        case '12':
+            setPressKeyMode(function() {
+                var r = pickRandomNumber();
+                if (isInArray('Healing', action_chart.kai_disciplines)) {
+                    r += 2;
+                }
+                $.each(sect.choices, function(i, choice) {
+                    if (r >= choice.range[0] && r <= choice.range[1]) {
+                        print('You have picked {0}'.f(r), 'blue');
+                        print('({0})'.f(choice.text));
+                        setConfirmMode({
+                            prompt: '[[;#000;#ff0][continue y/n]]',
+                            yes: function() {
+                                doSection(choice);
+                            },
+                            no: function() {
+                                // remove all choices other than the picked one
+                                data.sections[curr_section].choices = [choice];
+                                term.set_prompt(cmd_prompt);
+                            }
+                        });
+                    }
+                });
+            });
+            break;
+
         case '21':
             setPressKeyMode(function() {
                 var r = pickRandomNumber(),
@@ -883,6 +909,16 @@ $(document).ready(function($) {
             doSection();
             break;
 
+        case '194':
+            action_chart.weapons = [];
+            action_chart.backpack_items = [];
+            action_chart.special_items = [];
+            action_chart.gold = 0;
+            action_chart.has_backpack = false;
+            print('You have lost all your belongings (including your Backpack).', 'blue');
+            doSection();
+            break;
+
         case '308':
             if (action_chart.gold < 3) {
                 print("You don't have enough Gold Crowns to play.", 'blue');
@@ -928,32 +964,6 @@ $(document).ready(function($) {
             doSection();
             break;
 
-        case '12':
-            setPressKeyMode(function() {
-                var r = pickRandomNumber();
-                if (isInArray('Healing', action_chart.kai_disciplines)) {
-                    r += 2;
-                }
-                $.each(sect.choices, function(i, choice) {
-                    if (r >= choice.range[0] && r <= choice.range[1]) {
-                        print('You have picked {0}'.f(r), 'blue');
-                        print('({0})'.f(choice.text));
-                        setConfirmMode({
-                            prompt: '[[;#000;#ff0][continue y/n]]',
-                            yes: function() {
-                                doSection(choice);
-                            },
-                            no: function() {
-                                // remove all choices other than the picked one
-                                data.sections[curr_section].choices = [choice];
-                                term.set_prompt(cmd_prompt);
-                            }
-                        });
-                    }
-                });
-            });
-            break;
-
         default:
             print('Error: special section {0} is not implemented.'.f(curr_section), 'blue');
         };
@@ -984,6 +994,11 @@ $(document).ready(function($) {
             action_chart.special_items.push({name: 'White Pass', ac_section: 'special_items'});
             action_chart.gold -= 10;
             print('Your Action Chart was updated.', 'blue');
+            break;
+
+        case '199':
+            action_chart.gold -= 1;
+            print('You pay 1 Gold Crown.', 'blue');
             break;
 
         default:
@@ -1185,7 +1200,7 @@ $(document).ready(function($) {
         term.echo('Kai Disciplines: ' + kds.join(', '));
         term.echo('Weapons        : ' + getNames(action_chart.weapons).join(', '));
         term.echo('Gold Crowns    : ' + action_chart.gold);
-        term.echo('Backpack Items : ' + (action_chart.has_backpack ? getNames(action_chart.backpack_items).join(', ') : '[---]'));
+        term.echo('Backpack Items : ' + (action_chart.has_backpack ? getNames(action_chart.backpack_items).join(', ') : '[No Backpack]'));
         term.echo('Special Items  : ' + getNames(action_chart.special_items).join(', ') + '\n\n');
     },
 
@@ -1578,9 +1593,9 @@ $(document).ready(function($) {
 
         // at this point we have a match
         matched_choice_idx = choice_match_results[0][1];
-
         choice = sect.choices[matched_choice_idx];
-        if (choice.hasOwnProperty('text')) { // regular book choice
+
+        if (!choice.hasOwnProperty('is_artificial')) { // regular book choice
             print(sect.choices[matched_choice_idx].text);
             setConfirmMode({
                 yes: function() {
@@ -1752,7 +1767,7 @@ $(document).ready(function($) {
                     action_chart.combat_skill = 10;
                     action_chart.endurance.initial = 20;
                     action_chart.endurance.current = 18;
-                    action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Hunting'];
+                    action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Tracking'];
                     action_chart.weaponskill = 'Spear';
                     //addItem({name: 'Quarterstaff',ac_section:'weapons'});
                     //addItem({name: 'Short Sword', ac_section: 'weapons'});
