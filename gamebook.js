@@ -1278,7 +1278,6 @@ $(document).ready(function($) {
                 print('You are hungry and lose ENDURANCE.', 'blue');
                 // must_eat is possibly an int, to specify a endurance penalty different than the default (-3)
                 var e = typeof data.sections[prev_section].must_eat === 'number' ? data.sections[prev_section].must_eat : -3;
-                console.log(e);
                 if (!updateEndurance(e)) {
                     return;
                 }
