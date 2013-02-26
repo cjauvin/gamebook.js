@@ -977,7 +977,7 @@ var gamebook = function() {
                 localStorage['action_chart'] = JSON.stringify(engine.action_chart);
                 localStorage['prev_section'] = JSON.stringify(engine.prev_section);
                 localStorage['curr_section'] = JSON.stringify(engine.curr_section);
-                localStorage['visited_sections'] = JSON.stringify(engine.visited_sections);
+                localStorage['visited_sections'] = JSON.stringify(engine.visited_sections); //.slice(0, engine.visited_sections.length - 1));
                 engine.print("The game state was saved (use 'load' to restore it at any moment).", 'blue');
                 return;
             }
@@ -985,12 +985,15 @@ var gamebook = function() {
             if (command === 'load') {
                 if (localStorage['action_chart'] && localStorage['prev_section'] &&
                     localStorage['curr_section'] && localStorage['visited_sections']) {
-                    engine.action_chart = JSON.parse(localStorage['action_chart']);
-                    engine.prev_section = JSON.parse(localStorage['prev_section']);
-                    engine.curr_section = JSON.parse(localStorage['curr_section']);
-                    engine.visited_sections = JSON.parse(localStorage['visited_sections']);
-                    engine.print("The previous game state was restored.", 'blue');
-                    engine.doSection();
+                    $.getJSON(engine.gamebook_url, function(_data) {
+                        engine.data = _data;
+                        engine.action_chart = JSON.parse(localStorage['action_chart']);
+                        engine.prev_section = JSON.parse(localStorage['prev_section']);
+                        engine.curr_section = JSON.parse(localStorage['curr_section']);
+                        engine.visited_sections = JSON.parse(localStorage['visited_sections']);
+                        engine.print("The previous game state was restored.", 'blue');
+                        engine.doSection();
+                    });
                 } else {
                     engine.print('There is no saved state to restore.', 'blue');
                 }
