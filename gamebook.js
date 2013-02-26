@@ -48,7 +48,31 @@ var gamebook = function() {
         debug: true,
         data: {},
         synonyms: {},
+        raw_synonyms: {}, // unstemmed (nicer for autocompletion)
         autocompletion_enabled: true,
+        term: null,
+        command: '',
+        command_split_regexp: /[^A-Za-z0-9'-]+/, // every nonalpha except "'" and "-"
+        cmd_prompt: '',
+
+        //------------------------------------------------------------------------------------------------------------
+        // STATE variables
+
+        action_chart: $.extend(true, {}, action_chart),
+        prev_section: null,
+        curr_section: '1',
+        visited_sections: ['1'],
+
+        //------------------------------------------------------------------------------------------------------------
+        // book-specific routines
+
+        special_sections: {},
+        special_choices: {},
+        special_combats: {},
+
+        //------------------------------------------------------------------------------------------------------------
+        // command-line interaction modes
+
         // sequence parts
         sequence_mode: {
             is_active: false,
@@ -86,31 +110,8 @@ var gamebook = function() {
             callback: $.noop,
             accumulator: ''
         },
-        term: null,
-        command: '',
-        command_split_regexp: /[^A-Za-z0-9'-]+/, // every nonalpha except "'" and "-"
-        cmd_prompt: '',
-        help_str: help_str,
-        engine_intro: [logo + "\n\nWelcome to https://github.com/cjauvin/gamebook.js[gamebook.js], an http://en.wikipedia.org/wiki/Interactive_fiction[IF]-style gamebook engine created by\nhttp://christianjauv.in[Christian Jauvin].",
-                        "Instead of navigating an explicit menu of choices, as in the classical\ngamebooks, you are a given a console in which you are free to type\nany command, after each section, using clues from the text. The engine\nthen tries to match your input with one of the predefined choices,\nyielding a gameplay more akin to http://en.wikipedia.org/wiki/Interactive_fiction[interactive fiction].",
-                        "You're about to play an experimental and incomplete version of\nhttp://en.wikipedia.org/wiki/Fire_on_the_water[Fire on the Water], the second gamebook in the http://en.wikipedia.org/wiki/Lone_Wolf_(gamebooks)[Lone Wolf] series,\nwritten by http://en.wikipedia.org/wiki/Joe_Dever[Joe Dever] in 1984. This http://www.projectaon.org/en/Main/FireOnTheWater[electronic version] of the book\nwas created and is being distributed by http://www.projectaon.org/en/Main/Home[Project Aon]. Please note\nthat only the first 53 sections (in http://www.projectaon.org/en/svg/lw/02fotw.svgz[\"story\"], rather than numeric\norder) of the book are currently implemented (but the rest should\nfollow soon).",
-                        ["How to Play", help_str]],
-
-        //   *
-        // *   *
-        stars: new Array(33).join(' ') + '*\n' + new Array(31).join(' ') + '*   *',
 
         //------------------------------------------------------------------------------------------------------------
-        // these are the only variables that keep track of the state
-        action_chart: $.extend(true, {}, action_chart),
-        prev_section: null,
-        curr_section: '1',
-        visited_sections: ['1'],
-        //------------------------------------------------------------------------------------------------------------
-
-        special_sections: {},
-        special_choices: {},
-        special_combats: {},
 
         combat_results_table: [
             [[6,0], [7,0], [8,0], [9,0], [10,0], [11,0], [12,0], [14,0], [16,0], [18,0], ['k',0], ['k',0], ['k',0]], // 0
@@ -134,6 +135,16 @@ var gamebook = function() {
         colors: {
             'red': '#f00', 'blue': '#0f60ff', 'yellow': '#ff0'
         },
+
+        help_str: help_str,
+        engine_intro: [logo + "\n\nWelcome to https://github.com/cjauvin/gamebook.js[gamebook.js], an http://en.wikipedia.org/wiki/Interactive_fiction[IF]-style gamebook engine created by\nhttp://christianjauv.in[Christian Jauvin].",
+                        "Instead of navigating an explicit menu of choices, as in the classical\ngamebooks, you are a given a console in which you are free to type\nany command, after each section, using clues from the text. The engine\nthen tries to match your input with one of the predefined choices,\nyielding a gameplay more akin to http://en.wikipedia.org/wiki/Interactive_fiction[interactive fiction].",
+                        "You're about to play an experimental and incomplete version of\nhttp://en.wikipedia.org/wiki/Fire_on_the_water[Fire on the Water], the second gamebook in the http://en.wikipedia.org/wiki/Lone_Wolf_(gamebooks)[Lone Wolf] series,\nwritten by http://en.wikipedia.org/wiki/Joe_Dever[Joe Dever] in 1984. This http://www.projectaon.org/en/Main/FireOnTheWater[electronic version] of the book\nwas created and is being distributed by http://www.projectaon.org/en/Main/Home[Project Aon]. Please note\nthat only the first 53 sections (in http://www.projectaon.org/en/svg/lw/02fotw.svgz[\"story\"], rather than numeric\norder) of the book are currently implemented (but the rest should\nfollow soon).",
+                        ["How to Play", help_str]],
+
+        //   *
+        // *   *
+        stars: new Array(33).join(' ') + '*\n' + new Array(31).join(' ') + '*   *',
 
         //------------------------------------------------------------------------------------------------------------
         print: function(str, color_name) {
@@ -624,7 +635,8 @@ var gamebook = function() {
             if (this.autocompletion_enabled) {
                 each(this, sect.choices, function(i, choice) {
                     each(this, choice.words || [], function(j, word) {
-                        each(this, (this.synonyms[word] || []).concat(word), function(k, syn) {
+                        // show raw synonyms here (instead of stemmed ones)
+                        each(this, (this.raw_synonyms[word] || []).concat(word), function(k, syn) {
                             if ($.isArray(syn)) {
                                 each(this, syn, function(l, synw) {
                                     autocomplete_words.push(synw);
@@ -1459,6 +1471,12 @@ var gamebook = function() {
                     $.each(stemmed_synonyms, function(i, synset) {
                         $.each(synset, function(j, w) {
                             engine.synonyms[w] = $.grep(synset, function(v) { return v !== w; });
+                        });
+                    });
+                    // raw, unstemmed syns (for autocompletion)
+                    $.each(engine.data.synonyms, function(i, synset) {
+                        $.each(synset, function(j, w) {
+                            engine.raw_synonyms[w] = $.grep(synset, function(v) { return v !== w; });
                         });
                     });
                     engine.data.intro_sequence[engine.data.intro_sequence.length-1] += '\n\n' + engine.stars;
