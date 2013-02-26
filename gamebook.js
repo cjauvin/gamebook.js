@@ -37,6 +37,8 @@ var gamebook = function() {
                         {name: 'Seal of Hammerdal', ac_section: 'special_items'}]
     };
 
+    //------------------------------------------------------------------------------------------------------------
+
     var engine = {
 
         // uses jsonp to avoid XSS issues
@@ -164,40 +166,40 @@ var gamebook = function() {
             // stats
             if (this.sequence_mode.seq_idx === 1) {
                 this.sequence_mode.is_active = false;
-                this.setPressKeyMode(f(this, function() {
+                this.setPressKeyMode(function() {
                     this.action_chart.combat_skill = this.pickRandomNumber() + 10;
                     this.action_chart.endurance.initial = this.action_chart.endurance.current = this.pickRandomNumber() + 20;
                     this.print('COMBAT SKILL: {0}, ENDURANCE: {1}'.f(this.action_chart.combat_skill,
                                                                      this.action_chart.endurance.current), 'blue');
                     this.sequence_mode.is_active = true;
                     this.term.set_prompt(this.sequence_mode.prompt);
-                }));
+                });
                 // kai skill desc
             } else if (this.sequence_mode.seq_idx === 2) {
                 this.print('Do you want to read about the Kai Disciplines?', 'blue');
                 this.sequence_mode.is_active = false;
                 this.setConfirmMode({
-                    yes: f(this, function() {
+                    yes: function() {
                         this.sequence_mode.is_active = true;
                         this.term.set_prompt(this.sequence_mode.prompt);
                         this.print(this.sequence_mode.seq[this.sequence_mode.seq_idx]);
                         this.sequence_mode.seq_idx += 1;
                         this.doSetupSequence();
-                    }),
-                    no: f(this, function() {
+                    },
+                    no: function() {
                         this.sequence_mode.seq_idx += 10;
                         this.sequence_mode.is_active = true;
                         this.print(this.sequence_mode.seq[this.sequence_mode.seq_idx]);
                         this.sequence_mode.seq_idx += 1;
                         this.doSetupSequence();
-                    })
+                    }
                 });
                 // choose kai skill
             } else if (this.sequence_mode.seq_idx === 13) {
                 this.sequence_mode.is_active = false;
                 this.setOptionMode({
                     prompt: '[[;#000;#ff0][choose an item ({0} left)]]'.f(5 - this.action_chart.kai_disciplines.length),
-                    callback: f(this, function(i) {
+                    callback: function(i) {
                         var disc = this.data.setup.disciplines[i],
                         ws;
                         if (!isInArray(disc, this.action_chart.kai_disciplines)) {
@@ -217,17 +219,17 @@ var gamebook = function() {
                             this.sequence_mode.seq_idx += 1;
                         }
                         this.doSetupSequence();
-                    })
+                    }
                 });
                 // gold
             } else if (this.sequence_mode.seq_idx === 14) {
                 this.sequence_mode.is_active = false;
-                this.setPressKeyMode(f(this, function() {
+                this.setPressKeyMode(function() {
                     this.action_chart.gold = this.pickRandomNumber() + 10;
                     this.print('Gold Crowns: {0}'.f(this.action_chart.gold), 'blue');
                     this.sequence_mode.is_active = true;
                     this.term.set_prompt(this.press_key_mode.prompt);
-                }));
+                });
                 // equipment
             } else if (this.sequence_mode.seq_idx === 15) {
                 this.sequence_mode.is_active = false;
@@ -236,7 +238,7 @@ var gamebook = function() {
                 }
                 this.setOptionMode({
                     prompt: '[[;#000;#ff0][choose an item]] (' + (2 - this.data.setup.equipment_tmp.length) + ' left)',
-                    callback: f(this, function(i) {
+                    callback: function(i) {
                         var item = this.data.setup.equipment[i],
                         item_name = $.isArray(item) ? 'Two Meals' : item.name;
                         if (!isInArray(item_name, this.data.setup.equipment_tmp)) {
@@ -261,7 +263,7 @@ var gamebook = function() {
                         } else {
                             this.doSetupSequence();
                         }
-                    })
+                    }
                 });
             } else if (this.sequence_mode.seq_idx === 16) {
                 this.print(this.stars, 'yellow');
@@ -286,10 +288,28 @@ var gamebook = function() {
         },
 
         //------------------------------------------------------------------------------------------------------------
+        matchItem: function(input_str, ac_sections) {
+            var closest = {lev: Number.POSITIVE_INFINITY, item: null};
+            each(this, ac_sections || ['weapons', 'backpack_items', 'special_items'], function(i, ac_section) {
+                each(this, this.action_chart[ac_section], function(j, item) {
+                    var item_name_words = item.name.split(this.command_split_regexp).concat(item.name);
+                    $.each(item_name_words, function(k, inw) {
+                        var lev = levenshteinDist(input_str, inw.toLowerCase());
+                        //console.log(iw, lev);
+                        if (lev < 3 && lev < closest.lev) {
+                            closest = {lev: lev, item: item};
+                        }
+                    });
+                });
+            });
+            return closest.item;
+        },
+
+        //------------------------------------------------------------------------------------------------------------
         setPressKeyMode: function(callback) {
             this.press_key_mode.is_active = true;
             this.term.set_prompt(this.press_key_mode.prompt);
-            this.press_key_mode.callback = callback;
+            this.press_key_mode.callback = $.proxy(callback, this);
         },
 
         //------------------------------------------------------------------------------------------------------------
@@ -299,8 +319,8 @@ var gamebook = function() {
             var noop = $.proxy(function() {
                 this.term.set_prompt(this.cmd_prompt);
             }, this);
-            this.confirm_mode.yes_callback = conf.hasOwnProperty('yes') ? conf.yes : noop;
-            this.confirm_mode.no_callback = conf.hasOwnProperty('no') ? conf.no : noop;
+            this.confirm_mode.yes_callback = conf.hasOwnProperty('yes') ? $.proxy(conf.yes, this) : noop;
+            this.confirm_mode.no_callback = conf.hasOwnProperty('no') ? $.proxy(conf.no, this) : noop;
         },
 
         //------------------------------------------------------------------------------------------------------------
@@ -308,7 +328,7 @@ var gamebook = function() {
             this.option_mode.is_active = true;
             this.term.set_prompt(conf.hasOwnProperty('prompt') ? conf.prompt : this.option_mode.prompt);
             this.option_mode.range = conf.hasOwnProperty('range') ? conf.range : this.option_mode.range;
-            this.option_mode.callback = conf.callback;
+            this.option_mode.callback = $.proxy(conf.callback, this);
         },
 
         //------------------------------------------------------------------------------------------------------------
@@ -316,7 +336,7 @@ var gamebook = function() {
             this.number_input_mode.is_active = true;
             this.number_input_mode.prompt = conf.hasOwnProperty('prompt') ? conf.prompt : this.number_input_mode.default_prompt;
             this.term.set_prompt(this.number_input_mode.prompt);
-            this.number_input_mode.callback = conf.callback;
+            this.number_input_mode.callback = $.proxy(conf.callback, this);
             this.number_input_mode.accumulator = '';
         },
 
@@ -414,12 +434,12 @@ var gamebook = function() {
         //------------------------------------------------------------------------------------------------------------
         restart: function() {
             // needed to restore certain modifs made to the game data structure
-            $.getJSON(this.gamebook_url, f(this, function(_data) {
+            $.getJSON(this.gamebook_url, $.proxy(function(_data) {
                 this.data = _data;
                 this.action_chart = action_chart;
                 this.initSequenceMode(this.data.setup.sequence, 'gamebook_setup');
                 this.doSetupSequence();
-            }));
+            }, this));
         },
 
         //------------------------------------------------------------------------------------------------------------
@@ -428,9 +448,9 @@ var gamebook = function() {
                 this.confirm_mode.is_active = false;
                 this.print('You have died..', 'red');
                 this.print(this.stars, 'yellow');
-                this.setPressKeyMode(f(this, function() {
+                this.setPressKeyMode(function() {
                     this.restart();
-                }));
+                });
                 return false;
             }
             return true;
@@ -627,7 +647,7 @@ var gamebook = function() {
         doSection: function(choice) {
 
             if (!this.data.sections.hasOwnProperty(this.curr_section)) {
-                print('Error: section {0} is not implemented.'.f(this.curr_section), 'blue');
+                this.print('Error: section {0} is not implemented.'.f(this.curr_section), 'blue');
                 return;
             }
 
@@ -652,7 +672,13 @@ var gamebook = function() {
                     this.visited_sections.push(this.curr_section);
                 }
                 if (choice.hasOwnProperty('is_special')) {
-                    this.doSpecialChoice(choice);
+                    // careful here: the key is a pair: [prev_section, choice.section], which
+                    // gets flattened to a comma-sep string as the dict key
+                    if (this.special_choices.hasOwnProperty([this.prev_section, choice.section])) {
+                        this.special_choices[[this.prev_section, choice.section]](this, choice);
+                    } else {
+                        this.print('Error: special choice {0} for section {1} is not implemented.'.f(choice.section, this.prev_section), 'blue');
+                    }
                 }
             }
 
@@ -722,7 +748,11 @@ var gamebook = function() {
                 if (sect.combat.enemies.length > 0) {
                     // combat first enemy and the others (if any) will be chained at the end
                     if (sect.combat.hasOwnProperty('is_special')) {
-                        this.doSpecialCombat(sect.combat.enemies[0], 0);
+                        if (this.special_combats.hasOwnProperty(this.curr_section)) {
+                            this.special_combats[this.curr_section](this, sect.combat.enemies[0], 0);
+                        } else {
+                            this.print('Error: special combat section {0} is not implemented.'.f(this.curr_section), 'blue');
+                        }
                     } else {
                         this.doCombat(sect.combat.enemies[0], 0);
                     }
@@ -752,17 +782,17 @@ var gamebook = function() {
                     var r = this.pickRandomNumber();
                     each(this, sect.choices, function(i, choice) {
                         if (r >= choice.range[0] && r <= choice.range[1]) {
-                            print('You have picked {0}'.f(r), 'blue');
-                            print('({0})'.f(choice.text));
-                            setConfirmMode({
+                            this.print('You have picked {0}'.f(r), 'blue');
+                            this.print('({0})'.f(choice.text));
+                            this.setConfirmMode({
                                 prompt: '[[;#000;#ff0][continue y/n]]',
                                 yes: function() {
-                                    doSection(choice);
+                                    this.doSection(choice);
                                 },
                                 no: function() {
                                     // remove all choices other than the picked one
-                                    data.sections[curr_section].choices = [choice];
-                                    term.set_prompt(cmd_prompt);
+                                    this.data.sections[this.curr_section].choices = [choice];
+                                    this.term.set_prompt(this.cmd_prompt);
                                 }
                             });
                         }
@@ -787,11 +817,11 @@ var gamebook = function() {
                 var auto_choice_found = false;
                 each(this, sect.choices, function(i, choice) {
                     if (choice.hasOwnProperty('auto') &&
-                        satisfiesChoiceRequirements(choice)) {
-                        print(choice.text);
-                        setConfirmMode({
+                        this.satisfiesChoiceRequirements(choice)) {
+                        this.print(choice.text);
+                        this.setConfirmMode({
                             yes: function() {
-                                doSection(choice);
+                                this.doSection(choice);
                             }
                         });
                         auto_choice_found = true;
@@ -803,7 +833,95 @@ var gamebook = function() {
                     this.term.set_prompt(this.cmd_prompt);
                 }
             }
+        },
+
+        //------------------------------------------------------------------------------------------------------------
+        doCombat: function(enemy, round) {
+            var sect = this.data.sections[this.curr_section],
+            evasion_choice,
+            combat_ratio = this.calculateCombatSkill(enemy).val - enemy.combat_skill,
+            doCombatRound = $.proxy(function() {
+                var r = this.pickRandomNumber(),
+                s, pts, alive, win_choice;
+                $.each(this.combat_results_ranges, function(i, range) {
+                    if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
+                });
+                pts = this.combat_results_table[r][s];
+                if (pts[0] === 'k') { pts[0] = enemy.endurance; }
+                if (pts[1] === 'k') { pts[1] = this.action_chart.endurance.current; }
+                if (enemy.hasOwnProperty('double_damage')) { pts[0] *= 2; }
+                if (enemy.hasOwnProperty('has_mindforce') && !isInArray('Mindshield', this.action_chart.kai_disciplines)) {
+                    pts[1] += 2;
+                }
+                enemy.endurance -= Math.min(pts[0], enemy.endurance);
+                this.action_chart.endurance.current -= Math.min(pts[1], this.action_chart.endurance.current);
+                this.print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], action_chart.endurance.current), 'red');
+                alive = this.isStillAlive();
+                if (enemy.endurance <= 0 && alive) {
+                    this.print('{0} has died.'.f(enemy.name), 'red');
+                    sect.combat.enemies.remove(sect.combat.enemies[0]);
+                    if (sect.combat.enemies.length === 0) {
+                        win_choice = sect.choices[sect.combat.win.choice];
+                        this.print('({0})'.f(win_choice.text));
+                        this.setConfirmMode({
+                            prompt: '[[;#000;#ff0][continue y/n]]',
+                            yes: function() {
+                                this.doSection(win_choice);
+                            },
+                            no: function() {
+                                // only keep the combat win choice
+                                sect.choices = [win_choice];
+                                this.term.set_prompt(this.cmd_prompt);
+                            }
+                        });
+                    } else {
+                        this.setPressKeyMode(function() {
+                            this.doSection();
+                        });
+                    }
+                    return false;
+                }
+                return alive;
+            }, this);
+
+            if (round === 0) {
+                this.print('Your Combat Ratio is {0}'.f(combat_ratio), 'red');
+            }
+
+            if (sect.combat.hasOwnProperty('evasion') && round >= sect.combat.evasion.n_rounds) {
+                this.setConfirmMode({
+                    prompt: '[[;#000;#ff0][evade y/n]]',
+                    yes: function() {
+                        var r = this.pickRandomNumber(),
+                        s, pts;
+                        $.each(combat_results_ranges, function(i, range) {
+                            if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
+                        });
+                        pts = this.combat_results_table[r][s];
+                        this.action_chart.endurance.current -= Math.min(pts[0], this.action_chart.endurance.current);
+                        enemy.endurance -= pts[1];
+                        this.print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], this.action_chart.endurance.current), 'red');
+                        evasion_choice = sect.choices[sect.combat.evasion.choice];
+                        this.print('({0})'.f(evasion_choice.text));
+                        this.setPressKeyMode(function() {
+                            this.doSection(evasion_choice);
+                        });
+                    },
+                    no: function() {
+                        if (doCombatRound()) {
+                            this.doCombat(enemy, round + 1);
+                        }
+                    }
+                });
+            } else {
+                this.setPressKeyMode(function() {
+                    if (doCombatRound()) {
+                        this.doCombat(enemy, round + 1);
+                    }
+                });
+            }
         }
+
 
     }; // end of engine object
 
@@ -840,7 +958,7 @@ var gamebook = function() {
             }
 
             if (command === 'again') {
-                engine.printSectionNumber(curr_section);
+                engine.printSectionNumber(engine.curr_section);
                 engine.print(sect.text);
                 return;
             }
@@ -1189,17 +1307,18 @@ var gamebook = function() {
                         });
                     }
                 } else {
-                    if (this.special_choices.hasOwnProperty(choice.section)) {
-                        this.special_choices[choice.section](this, choice);
+                    // this is only for section 93, I'm not sure if it's the right way to do it
+                    if (engine.special_choices.hasOwnProperty([engine.curr_section, choice.section])) {
+                        engine.special_choices[[engine.curr_section, choice.section]](engine, choice);
                     } else {
-                        this.print('Error: special choice {0} for section {1} is not implemented.'.f(choice.section, this.curr_section), 'blue');
+                        engine.print('Error: special choice {0} for section {1} is not implemented.'.f(choice.section, engine.curr_section), 'blue');
                     }
                 }
 
             }
 
-            ///////////////////////////////////////////////////////////////////////////////////////////////////
-            ///////////////////////////////////////////////////////////////////////////////////////////////////
+    //------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------
 
         }, {
             prompt: '',
@@ -1340,7 +1459,7 @@ var gamebook = function() {
                     });
                     engine.data.intro_sequence[engine.data.intro_sequence.length-1] += '\n\n' + engine.stars;
                     if (engine.debug) {
-                        engine.action_chart.combat_skill = 10;
+                        engine.action_chart.combat_skill = 100;
                         engine.action_chart.endurance.initial = 20;
                         engine.action_chart.endurance.current = 18;
                         engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Hunting'];
@@ -1353,7 +1472,7 @@ var gamebook = function() {
                         }
                         //action_chart.backpack_items.push({name: 'Meal', ac_section: 'backpack_items'})
                         engine.action_chart.special_items.push(engine.data.setup.equipment[3]); // chainmail
-                        engine.action_chart.gold = 3;
+                        engine.action_chart.gold = 50;
                         engine.doSection({section:location.search.match(/sect=(\d+)/) ? location.search.match(/sect=(\d+)/)[1] : '1'});
                     } else {
                         engine.initSequenceMode(engine.engine_intro, 'engine_intro');

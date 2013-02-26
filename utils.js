@@ -41,10 +41,6 @@ function each(that, iter, f) {
     return $.each(iter, $.proxy(f, that));
 }
 
-function f(that, f) {
-    return $.proxy(f, that);
-}
-
 // taken from: http://rosettacode.org/wiki/Levenshtein_distance#JavaScript
 function levenshteinDist(str1, str2) {
     var m = str1.length,
