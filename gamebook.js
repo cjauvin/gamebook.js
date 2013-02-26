@@ -1,11 +1,12 @@
 var gamebook = function() {
 
-    var logo = ["                            _                 _       _      ",
-                "  __ _  __ _ _ __ ___   ___| |__   ___   ___ | | __  (_)___  ",
-                " / _` |/ _` | '_ ` _ \\ / _ \\ '_ \\ / _ \\ / _ \\| |/ /  | / __| ",
-                "| (_| | (_| | | | | | |  __/ |_) | (_) | (_) |   < _ | \\__ \\ ",
-                " \\__, |\\__,_|_| |_| |_|\\___|_.__/ \\___/ \\___/|_|\\_(_)/ |___/ ",
-                " |___/                                             |__/      "].join('\n');
+    var logo =
+        "                            _                 _       _            \n" +
+        "  __ _  __ _ _ __ ___   ___| |__   ___   ___ | | __  (_)___        \n" +
+        " / _` |/ _` | '_ ` _ \\ / _ \\ '_ \\ / _ \\ / _ \\| |/ /  | / __|  \n" +
+        "| (_| | (_| | | | | | |  __/ |_) | (_) | (_) |   < _ | \\__ \\     \n" +
+        " \\__, |\\__,_|_| |_| |_|\\___|_.__/ \\___/ \\___/|_|\\_(_)/ |___/ \n" +
+        " |___/                                             |__/            ";
 
     var help_str =
         "Apart from the textual play commands, you can also use:\n\n" +
@@ -101,7 +102,7 @@ var gamebook = function() {
 
         //------------------------------------------------------------------------------------------------------------
         // these are the only variables that keep track of the state
-        action_chart: action_chart,
+        action_chart: $.extend(true, {}, action_chart),
         prev_section: null,
         curr_section: '1',
         visited_sections: ['1'],
@@ -735,7 +736,7 @@ var gamebook = function() {
 
                 if (sect.hasOwnProperty('is_special')) {
                     if (this.special_sections.hasOwnProperty(this.curr_section)) {
-                        this.special_sections[this.curr_section](this);
+                        this.special_sections[this.curr_section](this, sect);
                     } else {
                         this.print('Error: special section {0} is not implemented.'.f(this.curr_section), 'blue');
                     }
@@ -749,7 +750,7 @@ var gamebook = function() {
                     // combat first enemy and the others (if any) will be chained at the end
                     if (sect.combat.hasOwnProperty('is_special')) {
                         if (this.special_combats.hasOwnProperty(this.curr_section)) {
-                            this.special_combats[this.curr_section](this, sect.combat.enemies[0], 0);
+                            this.special_combats[this.curr_section](this, sect, sect.combat.enemies[0], 0);
                         } else {
                             this.print('Error: special combat section {0} is not implemented.'.f(this.curr_section), 'blue');
                         }
@@ -942,7 +943,7 @@ var gamebook = function() {
             section_input = command.match(/^\d+$/),
             valid_section_input_found = false,
             matched_choice_idx, altern_choice_idx,
-            sect = $.extend(true, {}, engine.data.sections[engine.curr_section]), // deep clone because we might modify it
+            sect = $.extend(true, {}, engine.data.sections[engine.curr_section]), // deep clone because we might add artificial choices
             m, item, choice;
 
             engine.term.echo('\n');
