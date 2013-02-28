@@ -587,6 +587,16 @@ var gamebook = function() {
                         ok = false;
                         return false;
                     }
+                } else if (key === 'not') {
+                    if (Object.keys(choice.requires.not).length !== 1) {
+                        this.print('Error: requires.not with more than 1 clause is not implemented.', 'blue');
+                    }
+                    var key_not = Object.keys(choice.requires.not)[0];
+                    var val_not = choice.requires.not[key_not];
+                    if (isInArray(val_not, this.action_chart[key_not]) || isInArray(val_not, getNames(this.action_chart[key_not]))) {
+                        ok = false;
+                        return false;
+                    }
                 } else {
                     // keys should correspond to ac sections
                     switch (typeof value) {
@@ -752,23 +762,9 @@ var gamebook = function() {
 
                 // option to remove choices for which satisfiesChoiceRequirements is false
                 if (sect.hasOwnProperty('trim_choices')) {
-                    sect.choices = $.grep(sect.choices, function(choice) {
+                    sect.choices = $.grep(sect.choices, $.proxy(function(choice) {
                         return this.satisfiesChoiceRequirements(choice);
-                    });
-                }
-
-                // option to retain only first choice for which satisfiesChoiceRequirements is true
-                if (sect.hasOwnProperty('reduce_choices')) {
-                    each(this, sect.choices, function(i, choice) {
-                        if (this.satisfiesChoiceRequirements(choice)) {
-                            sect.choices = [choice];
-                            return false;
-                        }
-                    });
-                    if (sect.choices.length !== 1) {
-                        print('Error: section {0} has {1} choices even though reduce_choices was set.',
-                              this.curr_section, sect.choices.length);
-                    }
+                    }, this));
                 }
 
                 if (sect.hasOwnProperty('is_special')) {
