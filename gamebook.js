@@ -414,7 +414,7 @@ var gamebook = function() {
 
         //------------------------------------------------------------------------------------------------------------
         calculateEndurance: function () {
-            var ac = action_chart,
+            var ac = this.action_chart,
             str = '{0}'.f(ac.endurance.initial),
             val = ac.endurance.initial;
             if (isInArray('Chainmail Waistcoat', getNames(ac.special_items))) {
@@ -872,7 +872,7 @@ var gamebook = function() {
         //------------------------------------------------------------------------------------------------------------
         doCombat: function(enemy, round) {
             var sect = this.data.sections[this.curr_section],
-            evasion_choice,
+            evasion_choice, ac = this.action_chart,
             combat_ratio = this.calculateCombatSkill(enemy).val - enemy.combat_skill,
             doCombatRound = $.proxy(function() {
                 var r = this.pickRandomNumber(),
@@ -882,14 +882,14 @@ var gamebook = function() {
                 });
                 pts = this.combat_results_table[r][s];
                 if (pts[0] === 'k') { pts[0] = enemy.endurance; }
-                if (pts[1] === 'k') { pts[1] = this.action_chart.endurance.current; }
+                if (pts[1] === 'k') { pts[1] = ac.endurance.current; }
                 if (enemy.hasOwnProperty('double_damage')) { pts[0] *= 2; }
-                if (enemy.hasOwnProperty('has_mindforce') && !isInArray('Mindshield', this.action_chart.kai_disciplines)) {
+                if (enemy.hasOwnProperty('has_mindforce') && !isInArray('Mindshield', ac.kai_disciplines)) {
                     pts[1] += 2;
                 }
                 enemy.endurance -= Math.min(pts[0], enemy.endurance);
-                this.action_chart.endurance.current -= Math.min(pts[1], this.action_chart.endurance.current);
-                this.print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], action_chart.endurance.current), 'red');
+                ac.endurance.current -= Math.min(pts[1], ac.endurance.current);
+                this.print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], ac.endurance.current), 'red');
                 alive = this.isStillAlive();
                 if (enemy.endurance <= 0 && alive) {
                     this.print('{0} has died.'.f(enemy.name), 'red');
@@ -932,9 +932,9 @@ var gamebook = function() {
                             if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
                         });
                         pts = this.combat_results_table[r][s];
-                        this.action_chart.endurance.current -= Math.min(pts[0], this.action_chart.endurance.current);
+                        ac.endurance.current -= Math.min(pts[0], ac.endurance.current);
                         enemy.endurance -= pts[1];
-                        this.print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], this.action_chart.endurance.current), 'red');
+                        this.print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], ac.endurance.current), 'red');
                         evasion_choice = sect.choices[sect.combat.evasion.choice];
                         this.print('({0})'.f(evasion_choice.text));
                         this.setPressKeyMode(function() {
@@ -1087,7 +1087,7 @@ var gamebook = function() {
                     engine.setConfirmMode({
                         yes: function() {
                             if (item.ac_section === 'special_items') {
-                                engine.print('You cannot drop that item for the moment.', 'blue');
+                                engine.print('You cannot drop that item here.', 'blue');
                             } else {
                                 engine.action_chart[item.ac_section].remove(item);
                                 engine.updateEndurance();
@@ -1502,18 +1502,18 @@ var gamebook = function() {
                     });
                     engine.data.intro_sequence[engine.data.intro_sequence.length-1] += '\n\n' + engine.stars;
                     if (engine.debug) {
-                        engine.action_chart.combat_skill = 100;
+                        engine.action_chart.combat_skill = 30;
                         engine.action_chart.endurance.initial = 20;
                         engine.action_chart.endurance.current = 18;
                         engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Sixth Sense'];
                         engine.action_chart.weaponskill = 'Spear';
                         //addItem({name: 'Quarterstaff',ac_section:'weapons'});
                         engine.addItem({name: 'Short Sword', ac_section: 'weapons'});
-                        //action_chart.backpack_items.push(data.setup.equipment[5]); // healing potion
+                        engine.addItem(engine.data.setup.equipment[5]); // healing potion
                         for (var i = 0; i < 8; i++) { // fill with Meals
                             //addItem({name: 'Meal', ac_section: 'backpack_items'});
                         }
-                        //action_chart.backpack_items.push({name: 'Meal', ac_section: 'backpack_items'})
+                        //addItem({"name": "Healing Potion", "ac_section": "backpack_items", "endurance": 4, "is_consumable": true});
                         engine.action_chart.special_items.push(engine.data.setup.equipment[3]); // chainmail
                         engine.action_chart.gold = 50;
                         engine.doSection({section:location.search.match(/sect=(\d+)/) ? location.search.match(/sect=(\d+)/)[1] : '1'});

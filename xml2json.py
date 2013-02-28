@@ -30,7 +30,7 @@ tree = etree.parse('fotw.xml', parser=parser)
 root = tree.getroot()
 
 stopwords = set(stopwords.words('english'))
-for w in ['turn', 'wish']:
+for w in ['turn', 'wish', 'want', 'turning']:
     stopwords.add(w)
 
 for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:

@@ -304,6 +304,7 @@ var fotw_special_combats = {
 
     "7": function(engine, sect, enemy, round) {
         var evasion_choice, combat_ratio,
+        ac = engine.action_chart,
         doCombatRound = function() {
             var r = engine.pickRandomNumber(),
             s, pts, alive, win_choice;
@@ -312,11 +313,11 @@ var fotw_special_combats = {
             });
             pts = engine.combat_results_table[r][s];
             if (pts[0] === 'k') { pts[0] = enemy.endurance; }
-            if (pts[1] === 'k') { pts[1] = engine.action_chart.endurance.current; }
+            if (pts[1] === 'k') { pts[1] = ac.endurance.current; }
             if (enemy.hasOwnProperty('double_damage')) { pts[0] *= 2; }
             enemy.endurance -= Math.min(pts[0], enemy.endurance);
-            engine.action_chart.endurance.current -= Math.min(pts[1], engine.action_chart.endurance.current);
-            engine.print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], engine.action_chart.endurance.current), 'red');
+            ac.endurance.current -= Math.min(pts[1], ac.endurance.current);
+            engine.print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], ac.endurance.current), 'red');
             alive = engine.isStillAlive();
             if (enemy.endurance <= 0 && alive) {
                 engine.print('{0} has died.'.f(enemy.name), 'red');
@@ -359,9 +360,9 @@ var fotw_special_combats = {
                         if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
                     });
                     pts = engine.combat_results_table[r][s];
-                    engine.action_chart.endurance.current -= Math.min(pts[0], engine.action_chart.endurance.current);
+                    ac.endurance.current -= Math.min(pts[0], ac.endurance.current);
                     enemy.endurance -= pts[1];
-                    engine.print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], engine.action_chart.endurance.current), 'red');
+                    engine.print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], ac.endurance.current), 'red');
                     evasion_choice = sect.choices[sect.combat.evasion.choice];
                     engine.print('({0})'.f(evasion_choice.text));
                     engine.setPressKeyMode(function() {
@@ -370,14 +371,14 @@ var fotw_special_combats = {
                 },
                 no: function() {
                     if (doCombatRound()) {
-                        engine.special_combats[engine.curr_section](engine, enemy, round + 1);
+                        engine.special_combats[engine.curr_section](engine, sect, enemy, round + 1);
                     }
                 }
             });
         } else {
             engine.setPressKeyMode(function() {
                 if (doCombatRound()) {
-                    engine.special_combats[engine.curr_section](engine, enemy, round + 1);
+                    engine.special_combats[engine.curr_section](engine, sect, enemy, round + 1);
                 }
             });
         }
@@ -385,6 +386,7 @@ var fotw_special_combats = {
 
     '60': function(engine, sect, enemy, round) {
         var evasion_choice,
+        ac = engine.action_chart,
         combat_ratio = (engine.calculateCombatSkill(enemy).val + 2) - enemy.combat_skill,
         doCombatRound = function() {
             var r = engine.pickRandomNumber(),
@@ -394,12 +396,12 @@ var fotw_special_combats = {
             });
             pts = engine.combat_results_table[r][s];
             if (pts[0] === 'k') { pts[0] = enemy.endurance; }
-            if (pts[1] === 'k') { pts[1] = engine.action_chart.endurance.current; }
+            if (pts[1] === 'k') { pts[1] = ac.endurance.current; }
             if (round < 2) { pts[1] = 0; } // special aspect
             if (enemy.hasOwnProperty('double_damage')) { pts[0] *= 2; }
             enemy.endurance -= Math.min(pts[0], enemy.endurance);
-            engine.action_chart.endurance.current -= Math.min(pts[1], engine.action_chart.endurance.current);
-            engine.print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], engine.action_chart.endurance.current), 'red');
+            ac.endurance.current -= Math.min(pts[1], ac.endurance.current);
+            engine.print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], ac.endurance.current), 'red');
             alive = engine.isStillAlive();
             if (enemy.endurance <= 0 && alive) {
                 engine.print('{0} has died.'.f(enemy.name), 'red');
@@ -435,9 +437,9 @@ var fotw_special_combats = {
                         if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
                     });
                     pts = engine.combat_results_table[r][s];
-                    engine.action_chart.endurance.current -= Math.min(pts[0], action_chart.endurance.current);
+                    ac.endurance.current -= Math.min(pts[0], action_chart.endurance.current);
                     enemy.endurance -= pts[1];
-                    engine.print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], engine.action_chart.endurance.current), 'red');
+                    engine.print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], ac.endurance.current), 'red');
                     evasion_choice = sect.choices[sect.combat.evasion.choice];
                     engine.print('({0})'.f(evasion_choice.text));
                     engine.setPressKeyMode(function() {
@@ -461,6 +463,7 @@ var fotw_special_combats = {
 
     '276': function(engine, sect, enemy, round) {
         var evasion_choice,
+        ac = engine.action_chart,
         combat_ratio = engine.calculateCombatSkill(enemy).val - enemy.combat_skill,
         doCombatRound = function() {
             var r = engine.pickRandomNumber(),
@@ -470,13 +473,13 @@ var fotw_special_combats = {
             });
             pts = engine.combat_results_table[r][s];
             if (pts[0] === 'k') { pts[0] = enemy.endurance; }
-            if (pts[1] === 'k') { pts[1] = engine.action_chart.endurance.current; }
+            if (pts[1] === 'k') { pts[1] = ac.endurance.current; }
             if (enemy.hasOwnProperty('double_damage')) { pts[0] *= 2; }
             enemy.endurance -= Math.min(pts[0], enemy.endurance);
-            engine.action_chart.endurance.current -= Math.min(pts[1], engine.action_chart.endurance.current);
-            engine.print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], engine.action_chart.endurance.current), 'red');
+            ac.endurance.current -= Math.min(pts[1], ac.endurance.current);
+            engine.print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], ac.endurance.current), 'red');
             if (enemy.endurance <= 0) {
-                engine.action_chart.endurance.current = sect.initial_endurance;
+                ac.endurance.current = sect.initial_endurance;
                 engine.print('You have won.', 'red');
                 win_choice = sect.choices[2];
                 engine.print('({0})'.f(win_choice.text));
@@ -491,8 +494,8 @@ var fotw_special_combats = {
                     }
                 });
                 return false;
-            } else if (engine.action_chart.endurance.current === 0) {
-                engine.action_chart.endurance.current = sect.initial_endurance;
+            } else if (ac.endurance.current === 0) {
+                ac.endurance.current = sect.initial_endurance;
                 engine.print('You have lost.', 'red');
                 lost_choice = sect.choices[1];
                 engine.print('({0})'.f(lost_choice.text));
@@ -512,7 +515,7 @@ var fotw_special_combats = {
         };
 
         if (round === 0) {
-            sect.initial_endurance = engine.action_chart.endurance.current;
+            sect.initial_endurance = ac.endurance.current;
             print('Your Combat Ratio is {0}'.f(combat_ratio), 'red');
         }
 
