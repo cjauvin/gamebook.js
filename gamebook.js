@@ -629,6 +629,17 @@ var gamebook = function() {
             return ok;
         },
 
+        hasNonAutoItems: function(sect) {
+            var found = false;
+            $.each(sect.items || [], function(i, item) {
+                if (!item.hasOwnProperty('auto')) {
+                    found = true;
+                    return false;
+                }
+            });
+            return found;
+        },
+
         //------------------------------------------------------------------------------------------------------------
         setAutocompletionWords: function(sect) {
             var autocomplete_words = [];
@@ -714,7 +725,7 @@ var gamebook = function() {
                     }
                 }
 
-                if (sect.hasOwnProperty('items')) {
+                if (this.hasNonAutoItems(sect)) {
                     this.print('There are items.', 'blue');
                 }
 
@@ -744,6 +755,20 @@ var gamebook = function() {
                     sect.choices = $.grep(sect.choices, function(choice) {
                         return this.satisfiesChoiceRequirements(choice);
                     });
+                }
+
+                // option to retain only first choice for which satisfiesChoiceRequirements is true
+                if (sect.hasOwnProperty('reduce_choices')) {
+                    each(this, sect.choices, function(i, choice) {
+                        if (this.satisfiesChoiceRequirements(choice)) {
+                            sect.choices = [choice];
+                            return false;
+                        }
+                    });
+                    if (sect.choices.length !== 1) {
+                        print('Error: section {0} has {1} choices even though reduce_choices was set.',
+                              this.curr_section, sect.choices.length);
+                    }
                 }
 
                 if (sect.hasOwnProperty('is_special')) {
@@ -811,7 +836,7 @@ var gamebook = function() {
                         }
                     });
                 });
-            } else if (sect.choices.length === 1 && !sect.hasOwnProperty('items')) {
+            } else if (sect.choices.length === 1 && !this.hasNonAutoItems(sect)) {
                 this.print(sect.choices[0].text);
                 this.setConfirmMode({
                     prompt: '[[;#000;#ff0][continue y/n]]',
@@ -1484,7 +1509,7 @@ var gamebook = function() {
                         engine.action_chart.combat_skill = 100;
                         engine.action_chart.endurance.initial = 20;
                         engine.action_chart.endurance.current = 18;
-                        engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Hunting'];
+                        engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Sixth Sense'];
                         engine.action_chart.weaponskill = 'Spear';
                         //addItem({name: 'Quarterstaff',ac_section:'weapons'});
                         engine.addItem({name: 'Short Sword', ac_section: 'weapons'});

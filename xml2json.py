@@ -174,6 +174,8 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             section['n_items_to_pick'] = cust_sect['n_items_to_pick']
         if 'trim_choices' in cust_sect:
             section['trim_choices'] = True
+        if 'reduce_choices' in cust_sect:
+            section['reduce_choices'] = True
         for custom_choice in custom['sections'][sect_id].get('choices', []):
             # no key to match here, so we got to match using choice.section (thus the need to search)
             #print custom_choice['section']

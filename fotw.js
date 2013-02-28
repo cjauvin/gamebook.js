@@ -266,9 +266,7 @@ var fotw_special_sections = {
 var fotw_special_choices = {
 
     '75,142': function(engine, choice) {
-        engine.action_chart.special_items.push({name: 'White Pass', ac_section: 'special_items'});
         engine.action_chart.gold -= 10;
-        engine.print('Your Action Chart was updated.', 'blue');
     },
 
     "93,137": function(engine, choice) {
