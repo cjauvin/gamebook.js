@@ -10,18 +10,18 @@ var gamebook = function() {
 
     var help_str =
         "Apart from the textual play commands, you can also use:\n\n" +
-        "'help' or '?': show this message\n" +
-        "'ac' or '!'  : show the Action Chart\n" +
-        "'drop'/'use' : one of your (weapon, backpack or special) items\n" +
-        "'continue'   : if the current section has only one choice, go to the next\n" +
-        "'123'        : go to section 123 (if possible from current section)\n" +
-        "'hint'       : show a random word from the choices of the current section\n" +
-        "'choices'    : (or 'cheat') reveal the set of choices for the current section\n" +
-        "'auto'       : toggle word autocompletion on/off\n" +
-        "'again'      : reprint the current section\n" +
-        "'save'/'load': save and restore the game state at any point\n" +
-        "'restart'    : restart the game (including setup)\n" +
-        "'clear'      : clear the screen\n";
+        "help or ? : show this message\n" +
+        "ac or !   : show the Action Chart\n" +
+        "drop/use  : one of your (weapon, backpack or special) items\n" +
+        "continue  : if the current section has only one choice, go to the next\n" +
+        "123       : go to section 123 (if possible from current section)\n" +
+        "hint      : show a random word from the choices of the current section\n" +
+        "cheat     : (or choices) reveal the set of choices for the current section\n" +
+        "auto      : toggle word autocompletion on/off\n" +
+        "again     : reprint the current section\n" +
+        "save/load : save and restore the game state at any point\n" +
+        "restart   : restart the game (including setup)\n" +
+        "clear     : clear the screen\n";
 
     var action_chart = {
         combat_skill: 0,
@@ -353,6 +353,15 @@ var gamebook = function() {
         },
 
         //------------------------------------------------------------------------------------------------------------
+        setCmdPrompt: function() {
+            // don't do it if any keypress mode is active
+            if (!(this.confirm_mode.is_active || this.option_mode.is_active ||
+                 this.press_key_mode.is_active || this.number_input_mode.is_active)) {
+                this.term.set_prompt(this.cmd_prompt);
+            }
+        },
+
+        //------------------------------------------------------------------------------------------------------------
         calculateCombatSkill: function(enemy) {
             var ac = this.action_chart,
             str = '{0}'.f(ac.combat_skill),
@@ -486,7 +495,7 @@ var gamebook = function() {
 
             // backpack special cases
             if (item.name === 'Backpack' && this.action_chart.has_backpack) {
-                this.print('You already have a Backpack..', 'blue');
+                this.print('You already have a Backpack.', 'blue');
                 return;
             }
 
@@ -498,8 +507,8 @@ var gamebook = function() {
                         yes: function() {
                             this.updateEndurance(item.endurance);
                             this.print('You gain {0} ENDURANCE points.'.f(item.endurance), 'blue');
-                            this.term.set_prompt(cmd_prompt);
-                            this.removeByName(item.name, sect.items || []);
+                            this.term.set_prompt(this.cmd_prompt);
+                            removeByName(item.name, sect.items || []);
                         }
                     });
                     return;
@@ -526,7 +535,6 @@ var gamebook = function() {
                             callback: function(i) {
                                 if (i === 0) { // none picked
                                     // trick: remove item that triggered addItem, to avoid coming back
-                                    //removeByName(item.name, data.sections[curr_section].items || []);
                                     this.doSection();
                                     return;
                                 }
@@ -580,7 +588,7 @@ var gamebook = function() {
         //------------------------------------------------------------------------------------------------------------
         satisfiesChoiceRequirements: function(choice) {
             var ok = true;
-            each(this, Object.keys(choice.requires || []), function(j, key) {
+            each(this, Object.keys(choice.requires || []), function(i, key) {
                 var value = choice.requires[key];
                 if (key === 'has_visited') {
                     if (!isInArray(value, this.visited_sections)) {
@@ -588,21 +596,21 @@ var gamebook = function() {
                         return false;
                     }
                 } else if (key === 'not') {
-                    if (Object.keys(choice.requires.not).length !== 1) {
-                        this.print('Error: requires.not with more than 1 clause is not implemented.', 'blue');
-                    }
-                    var key_not = Object.keys(choice.requires.not)[0];
-                    var val_not = choice.requires.not[key_not];
-                    if (isInArray(val_not, this.action_chart[key_not]) || isInArray(val_not, getNames(this.action_chart[key_not]))) {
-                        ok = false;
-                        return false;
-                    }
+                    each(this, Object.keys(choice.requires.not), function(j, key_not) {
+                        var val_not = choice.requires.not[key_not];
+                        // (*) using regexp matching here to allow alternative requirements (e.g. kai_disciplines = 'Sixth Sense|Mind Over Matter')
+                        if (matchInArray(val_not, this.action_chart[key_not]) || matchInArray(val_not, getNames(this.action_chart[key_not]))) {
+                            ok = false;
+                            return false;
+                        }
+                    });
+                    if (!ok) { return false; }
                 } else {
                     // keys should correspond to ac sections
                     switch (typeof value) {
                     case 'string':
-                        // test inclusion
-                        if (!isInArray(value, this.action_chart[key]) && !isInArray(value, getNames(this.action_chart[key]))) {
+                        // test inclusion, see (*) above
+                        if (!matchInArray(value, this.action_chart[key]) && !matchInArray(value, getNames(this.action_chart[key]))) {
                             ok = false;
                             return false;
                         }
@@ -751,10 +759,10 @@ var gamebook = function() {
                 }
 
                 if (this.prev_section && this.data.sections[this.prev_section].hasOwnProperty('must_eat') &&
-                    this.data.sections[prev_section].must_eat) {
+                    this.data.sections[this.prev_section].must_eat) {
                     this.print('You are hungry and lose ENDURANCE.', 'blue');
                     // must_eat is possibly an int, to specify a endurance penalty different than the default (-3)
-                    var e = typeof this.data.sections[prev_section].must_eat === 'number' ? this.data.sections[prev_section].must_eat : -3;
+                    var e = typeof this.data.sections[this.prev_section].must_eat === 'number' ? this.data.sections[this.prev_section].must_eat : -3;
                     if (!this.updateEndurance(e)) {
                         return;
                     }
@@ -842,7 +850,7 @@ var gamebook = function() {
                 });
             } else if (sect.choices.length === 0) {
                 // death
-                this.print(stars, 'yellow');
+                this.print(this.stars, 'yellow');
                 this.setPressKeyMode(function() { // restart
                     this.initSequenceMode(this.data.setup.sequence, 'gamebook_setup');
                     this.doSetupSequence();
@@ -1046,13 +1054,17 @@ var gamebook = function() {
             if (command === 'hint') {
                 var words = [];
                 $.each(sect.choices, function(i, choice) {
-                    $.each(choice.words, function(j, word) {
+                    $.each(choice.words || [], function(j, word) {
                         if (!$.isArray(word)) {
                             words.push(word);
                         }
                     });
                 });
-                engine.print(words[Math.floor(Math.random() * words.length)], 'blue');
+                if (words.length > 0) {
+                    engine.print(words[Math.floor(Math.random() * words.length)], 'blue');
+                } else {
+                    engine.print('Nothing to hint about here!', 'blue');
+                }
                 return;
             }
 
@@ -1139,13 +1151,13 @@ var gamebook = function() {
                             engine.print('You have no Meal left.', 'blue');
                         } else {
                             removeByName('Laumspur Meal', engine.action_chart.backpack_items);
-                            engine.data.sections[curr_section].must_eat = false;
+                            engine.data.sections[engine.curr_section].must_eat = false;
                             engine.updateEndurance(3);
                             engine.print('You eat a Laumspur Meal (and gain ENDURANCE).', 'blue');
                         }
                     } else {
                         removeByName('Meal', engine.action_chart.backpack_items);
-                        engine.data.sections[curr_section].must_eat = false;
+                        engine.data.sections[engine.curr_section].must_eat = false;
                         engine.print('You eat a Meal.', 'blue');
                     }
                 }
@@ -1240,7 +1252,10 @@ var gamebook = function() {
                         $.each(Object.keys(choice_syn_matches), function(l, s) {
                             // split compound word into single words..
                             $.each(s.split(','), function(m, t) {
-                                if (levenshteinDist(stemmer(w), t) <= 1) {
+                                // match if edit dist is <= 1 and first letters match (to prevent meal/heal[ing]
+                                // to match due to the stemmer) I'm not sure that this is the right way to do it,
+                                // maybe imposing a strict match would actually be better
+                                if (levenshteinDist(stemmer(w), t) <= 1 && w[0] == t[0]) {
                                     // and update the match bool at the proper position in
                                     // the match array (0 for single word)
                                     choice_word_matches[k][s][m] = 1;
@@ -1260,15 +1275,19 @@ var gamebook = function() {
                     });
                     // since only 1 synonym match is considered, take the max
                     n_choice_word_matches += Array.max(syn_matches);
+                    // if (Array.max(syn_matches) > 0) {
+                    //     console.log(choice_syn_matches, Array.max(syn_matches));
+                    // }
                 });
                 choice_match_results.push([n_choice_word_matches, i]);
             });
 
+            // sort by # of matches
             choice_match_results.sort().reverse();
 
             // no match, and more than one real (i.e. not artificially added) choices
             if (choice_match_results[0][0] === 0) {
-                engine.print('This command does not apply to the current context.', 'blue');
+                engine.print('Your command does not apply to the current context.', 'blue');
                 return;
             }
 
@@ -1296,7 +1315,7 @@ var gamebook = function() {
                         }
                     },
                     no: function() {
-                        if (sect.hasOwnProperty('alternate_choices') && sect.alternate_choices) {
+                        if (sect.hasOwnProperty('alternate_choices')) {
                             altern_choice_idx = matched_choice_idx === 0 ? 1 : 0;
                             engine.print(sect.choices[altern_choice_idx].text);
                             engine.setConfirmMode({
@@ -1315,7 +1334,7 @@ var gamebook = function() {
                     if (command.match(/^sell/) && item.hasOwnProperty('sellable')) {
                         if (!isInArray(item.name, getNames(engine.action_chart[item.ac_section]))) {
                             engine.print("You don't possess that item.", 'blue');
-                            engine.term.set_prompt(cmd_prompt);
+                            engine.term.set_prompt(engine.cmd_prompt);
                             return;
                         }
                         engine.print('Sell your {0}?'.f(item.name), 'blue');
@@ -1336,10 +1355,11 @@ var gamebook = function() {
                         engine.setConfirmMode({
                             yes: function() {
                                 engine.addItem(item);
-                                engine.term.set_prompt(engine.cmd_prompt);
+                                engine.setCmdPrompt();
+                                engine.doSection(); // to offer continue if there is now only one option (not sure!)
                             },
                             no: function() {
-                                engine.term.set_prompt(engine.cmd_prompt);
+                                engine.setCmdPrompt();
                             }
                         });
                     }
@@ -1505,14 +1525,17 @@ var gamebook = function() {
                         engine.action_chart.combat_skill = 30;
                         engine.action_chart.endurance.initial = 20;
                         engine.action_chart.endurance.current = 18;
-                        engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Sixth Sense'];
+                        engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage'];
                         engine.action_chart.weaponskill = 'Spear';
                         //addItem({name: 'Quarterstaff',ac_section:'weapons'});
                         engine.addItem({name: 'Short Sword', ac_section: 'weapons'});
-                        engine.addItem(engine.data.setup.equipment[5]); // healing potion
+                        //engine.addItem(engine.data.setup.equipment[5]); // healing potion
                         for (var i = 0; i < 8; i++) { // fill with Meals
-                            //addItem({name: 'Meal', ac_section: 'backpack_items'});
+                            //engine.addItem({name: 'Meal', ac_section: 'backpack_items'});
                         }
+                        engine.addItem({name: 'Meal', ac_section: 'backpack_items'});
+                        engine.addItem({name: 'Laumspur Meal', ac_section: 'backpack_items'});
+                        engine.addItem({name: 'Ticket', ac_section: 'special_items'});
                         //addItem({"name": "Healing Potion", "ac_section": "backpack_items", "endurance": 4, "is_consumable": true});
                         engine.action_chart.special_items.push(engine.data.setup.equipment[3]); // chainmail
                         engine.action_chart.gold = 50;

@@ -23,6 +23,17 @@ function isInArray(elem, arr) {
     return $.inArray(elem, arr) > -1;
 };
 
+function matchInArray(pattern, arr) {
+    var found = false;
+    $.each(arr, function(i, s) {
+        if (typeof s === 'string' && s.match(pattern)) {
+            found = true;
+            return false;
+        }
+    });
+    return found;
+};
+
 // only first matching item
 function removeByName(name, arr) {
     $.each(arr, function(i, item) {

@@ -33,12 +33,7 @@ var fotw_special_sections = {
             engine.action_chart.gold += g;
             engine.print('You have picked {0}: {1} Gold Crowns.'.f(r, g), 'blue');
             engine.print('You then pay 1 Gold Crown for the room.', 'blue');
-            engine.setConfirmMode({
-                prompt: '[[;#000;#ff0][continue y/n]]',
-                yes: function() {
-                    engine.doSection(sect.choices[0]);
-                }
-            });
+            engine.doSection();
         });
     },
 
@@ -265,6 +260,8 @@ var fotw_special_sections = {
 
 var fotw_special_choices = {
 
+    // section,choice
+
     '75,142': function(engine, choice) {
         engine.action_chart.gold -= 10;
     },
@@ -284,6 +281,16 @@ var fotw_special_choices = {
         } else {
             engine.print('This command does not apply to the current context.', 'blue');
         }
+    },
+
+    '36,145': function(engine, choice) {
+        // search for any Laumspur product
+        $.each(engine.action_chart.backpack_items, function(i, item) {
+            if (item.name.match('Laumspur')) {
+                removeByName(item.name, engine.action_chart.backpack_items);
+                return false;
+            }
+        });
     },
 
      '217,199': function(engine, choice) {

@@ -30,7 +30,7 @@ tree = etree.parse('fotw.xml', parser=parser)
 root = tree.getroot()
 
 stopwords = set(stopwords.words('english'))
-for w in ['turn', 'wish', 'want', 'turning']:
+for w in ['turn', 'wish', 'want', 'turning', 'rather', 'would', 'along', 'upon']:
     stopwords.add(w)
 
 for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
@@ -84,7 +84,12 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             sect_paras.append([spacer + s])
         if item.tag == 'ul':
             for li in item:
-                lis = processPara(etree.tostring(li).strip())[0]
+                t = etree.tostring(li).strip()
+                for a in ['COMBAT SKILL', 'ENDURANCE']:
+                    if '<typ class="attribute">%s</typ>' % a in t:
+                        t = t.replace('<typ class="attribute">%s</typ>' % a, a)
+                        stats_found = True
+                lis = processPara(t)[0]
                 lis = re.sub('</?li>', '', lis)
                 sect_paras.append(['* %s' % lis])
             list_found = True
