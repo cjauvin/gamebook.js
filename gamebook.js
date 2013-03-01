@@ -522,7 +522,7 @@ var gamebook = function() {
                 var ac_sect = elems[0];
                 var lim = elems[1];
                 if (item.ac_section === ac_sect && this.action_chart[ac_sect].length === lim) {
-                    var comm = item.hasOwnProperty('gold') ? 'buy' : 'take';
+                    var comm = (item.hasOwnProperty('gold') || item.hasOwnProperty('gold_max')) ? 'buy' : 'take';
                     this.print('Cannot {0} {1}: you already carry {2} {3}s.'.f(comm, item.name, lim, elems[2]), 'blue');
                     if (offer_replacement) {
                         var opts = [{name:'None'}].concat(this.action_chart[ac_sect]);
@@ -567,6 +567,9 @@ var gamebook = function() {
                     this.print("You don't have enough Gold Crowns.", 'blue');
                     return;
                 }
+            }
+            if (item.hasOwnProperty('gold_max')) {
+                this.action_chart.gold -= Math.min(item.gold_max, this.action_chart.gold);
             }
 
             removeByName(item.name, sect.items || []);
@@ -664,6 +667,9 @@ var gamebook = function() {
             if (this.autocompletion_enabled) {
                 each(this, sect.choices, function(i, choice) {
                     each(this, choice.words || [], function(j, word) {
+                        if (isInArray(word, choice.prevent_autocompletion || [])) {
+                            return false;
+                        }
                         // show raw synonyms here (instead of stemmed ones)
                         each(this, (this.raw_synonyms[word] || []).concat(word), function(k, syn) {
                             if ($.isArray(syn)) {
@@ -1076,17 +1082,12 @@ var gamebook = function() {
             }
 
             if (command === 'continue') {
-                // if only 1 non-artificial section..
-                var n = $.map(sect.choices, function(c) { return !c.hasOwnProperty('is_artificial') ? 1 : 0; })
-                    .reduce(function(a, b) { return a + b; });
-                if (n === 1) {
-                    // do it!
-                    $.each(sect.choices, function(i, choice) {
-                        if (!choice.hasOwnProperty('is_artificial')) {
-                            engine.doSection(choice);
-                            return false;
-                        }
-                    });
+                // if only 1 non-artificial section, offer it right away
+                var real_choices = $.grep(sect.choices, function(c) {
+                    return !c.hasOwnProperty('is_artificial');
+                });
+                if (real_choices.length === 1) {
+                    engine.doSection(real_choices[0]);
                     return;
                 }
             }
@@ -1192,7 +1193,7 @@ var gamebook = function() {
                         if (item.hasOwnProperty('sellable')) {
                             words.push('sell');
                         }
-                        if (item.hasOwnProperty('gold')) {
+                        if (item.hasOwnProperty('gold') || item.hasOwnProperty('gold_max')) {
                             words.push('buy');
                         }
                         if (words.length === 0) {
@@ -1279,7 +1280,8 @@ var gamebook = function() {
                     //     console.log(choice_syn_matches, Array.max(syn_matches));
                     // }
                 });
-                choice_match_results.push([n_choice_word_matches, i]);
+                //choice_match_results.push([n_choice_word_matches, i]);
+                choice_match_results.push([n_choice_word_matches, choice]);
             });
 
             // sort by # of matches
@@ -1294,19 +1296,21 @@ var gamebook = function() {
             // ambiguous match: more than 1 and > 0
             if (choice_match_results.length >= 2 &&
                 choice_match_results[0][0] === choice_match_results[1][0]) {
-                engine.print('Your command is ambiguous: try to reword it.', 'blue');
-                return;
+                if (sect.hasOwnProperty('no_ambiguity')) {
+                    // simply continue.. (and we'll pick first)
+                } else {
+                    engine.print('Your command is ambiguous: try to reword it.', 'blue');
+                    return;
+                }
             }
 
             // at this point we have a match
-            matched_choice_idx = choice_match_results[0][1];
-            choice = sect.choices[matched_choice_idx];
+            choice = choice_match_results[0][1];
 
             if (!choice.hasOwnProperty('is_artificial')) { // regular book choice
-                engine.print(sect.choices[matched_choice_idx].text);
+                engine.print(choice.text);
                 engine.setConfirmMode({
                     yes: function() {
-                        var choice = sect.choices[matched_choice_idx];
                         if (engine.satisfiesChoiceRequirements(choice)) {
                             engine.doSection(choice);
                         } else {
@@ -1316,11 +1320,17 @@ var gamebook = function() {
                     },
                     no: function() {
                         if (sect.hasOwnProperty('alternate_choices')) {
-                            altern_choice_idx = matched_choice_idx === 0 ? 1 : 0;
-                            engine.print(sect.choices[altern_choice_idx].text);
+                            var real_choices = $.grep(sect.choices, function(c) {
+                                return !c.hasOwnProperty('is_artificial');
+                            });
+                            if (real_choices.length !== 2) {
+                                engine.print('Error: section {0} has alternate_choices for {1} choices.'.f(engine.curr_section, real_choices.length), 'blue');
+                            }
+                            var altern_choice = choice === real_choices[0] ? real_choices[1] : real_choices[0];
+                            engine.print(altern_choice.text);
                             engine.setConfirmMode({
                                 yes: function() {
-                                    engine.doSection(sect.choices[altern_choice_idx]);
+                                    engine.doSection(altern_choice);
                                 }
                             });
                         } else {
@@ -1350,7 +1360,7 @@ var gamebook = function() {
                             }
                         });
                     } else {
-                        engine.print('{0} the {1}?'.f(item.hasOwnProperty('gold') ? 'Buy' : 'Take',
+                        engine.print('{0} the {1}?'.f(item.hasOwnProperty('gold') || item.hasOwnProperty('gold_max') ? 'Buy' : 'Take',
                                                       item.name));
                         engine.setConfirmMode({
                             yes: function() {
@@ -1525,7 +1535,7 @@ var gamebook = function() {
                         engine.action_chart.combat_skill = 30;
                         engine.action_chart.endurance.initial = 20;
                         engine.action_chart.endurance.current = 18;
-                        engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage'];
+                        engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Sixth Sense'];
                         engine.action_chart.weaponskill = 'Spear';
                         //addItem({name: 'Quarterstaff',ac_section:'weapons'});
                         engine.addItem({name: 'Short Sword', ac_section: 'weapons'});
@@ -1536,6 +1546,8 @@ var gamebook = function() {
                         engine.addItem({name: 'Meal', ac_section: 'backpack_items'});
                         engine.addItem({name: 'Laumspur Meal', ac_section: 'backpack_items'});
                         engine.addItem({name: 'Ticket', ac_section: 'special_items'});
+                        engine.addItem({"name": "Magic Spear", "ac_section": "special_items", "is_weaponlike": true,
+                                        "weaponskills": ["Spear"]});
                         //addItem({"name": "Healing Potion", "ac_section": "backpack_items", "endurance": 4, "is_consumable": true});
                         engine.action_chart.special_items.push(engine.data.setup.equipment[3]); // chainmail
                         engine.action_chart.gold = 50;

@@ -240,13 +240,6 @@ var fotw_special_sections = {
         engine.doSection();
     },
 
-    '327': function(engine, sect) {
-        var g = Math.min(6, engine.action_chart.gold);
-        engine.action_chart.gold -= g;
-        engine.print('(You actually obtain the papers for {0} Gold Crowns).'.f(g), 'blue');
-        engine.doSection();
-    },
-
     '337': function(engine, sect) {
         engine.action_chart.weapons = [];
         engine.action_chart.backpack_items = [];

@@ -158,6 +158,10 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
         cust_sect = custom['sections'][sect_id]
         if 'alternate_choices' in cust_sect:
             section['alternate_choices'] = True
+        # if 'chain_choices' in cust_sect:
+        #     section['chain_choices'] = True
+        if 'no_ambiguity' in cust_sect:
+            section['no_ambiguity'] = True
         if 'is_special' in cust_sect:
             section['is_special'] = True
         if 'items' in cust_sect:
