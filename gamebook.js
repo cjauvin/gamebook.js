@@ -707,7 +707,7 @@ var gamebook = function() {
             if (choice !== undefined) {
                 this.prev_section = this.curr_section;
                 this.curr_section = choice.section;
-                // some choices have a stat modifier
+                // some choices have modifiers
                 if (choice.hasOwnProperty('endurance')) {
                     this.updateEndurance(choice.endurance);
                     if (choice.endurance < 0) {
@@ -715,6 +715,10 @@ var gamebook = function() {
                     } else {
                         this.print('You gain ENDURANCE.', 'blue');
                     }
+                }
+                if (choice.hasOwnProperty('gold')) {
+                    this.action_chart.gold += choice.gold;
+                    this.print('You now have {0} Gold Crowns.'.f(this.action_chart.gold), 'blue');
                 }
                 if (!isInArray(this.curr_section, this.visited_sections)) {
                     this.visited_sections.push(this.curr_section);
