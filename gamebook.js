@@ -1,5 +1,16 @@
 var gamebook = function() {
 
+    // general error handler which redirects to the terminal, for easier/friendlier reporting
+    window.onerror = function(msg, url, line_no) {
+        // assumes that engine is defined and that it has a working terminal
+        if (engine && engine.term) {
+            engine.term.echo('\n[[;#0f60ff;#000]There was an exception at line {0}:] [[;#f00;#000]{1}]'.f(line_no, msg));
+            engine.term.echo('\n[[;#0f60ff;#000]Really sorry about that.. (a quick note about it at cjauvin@gmail.com would be\nvery helpful and appreciated, if you feel like it).]\n');
+            return true; // prevent any further catching mechanism
+        }
+        return false;
+    };
+
     var logo =
         "                            _                 _       _            \n" +
         "  __ _  __ _ _ __ ___   ___| |__   ___   ___ | | __  (_)___        \n" +
@@ -147,7 +158,7 @@ var gamebook = function() {
         stars: new Array(33).join(' ') + '*\n' + new Array(31).join(' ') + '*   *',
 
         //------------------------------------------------------------------------------------------------------------
-        print: function(str, color_name) {
+        echo: function(str, color_name) {
             if (color_name === undefined) {
                 this.term.echo(str);
             } else {
@@ -164,10 +175,10 @@ var gamebook = function() {
             this.term.clear();
             var seq_part = this.sequence_mode.seq[0];
             if ($.isArray(seq_part)) {
-                this.print(seq_part[0], 'yellow');
-                this.print(seq_part[1]);
+                this.echo(seq_part[0], 'yellow');
+                this.echo(seq_part[1]);
             } else {
-                this.print(seq_part);
+                this.echo(seq_part);
             }
             this.term.set_prompt(this.sequence_mode.prompt);
             this.sequence_mode.seq_idx = 1;
@@ -181,27 +192,27 @@ var gamebook = function() {
                 this.setPressKeyMode(function() {
                     this.action_chart.combat_skill = this.pickRandomNumber() + 10;
                     this.action_chart.endurance.initial = this.action_chart.endurance.current = this.pickRandomNumber() + 20;
-                    this.print('COMBAT SKILL: {0}, ENDURANCE: {1}'.f(this.action_chart.combat_skill,
+                    this.echo('COMBAT SKILL: {0}, ENDURANCE: {1}'.f(this.action_chart.combat_skill,
                                                                      this.action_chart.endurance.current), 'blue');
                     this.sequence_mode.is_active = true;
                     this.term.set_prompt(this.sequence_mode.prompt);
                 });
                 // kai skill desc
             } else if (this.sequence_mode.seq_idx === 2) {
-                this.print('Do you want to read about the Kai Disciplines?', 'blue');
+                this.echo('Do you want to read about the Kai Disciplines?', 'blue');
                 this.sequence_mode.is_active = false;
                 this.setConfirmMode({
                     yes: function() {
                         this.sequence_mode.is_active = true;
                         this.term.set_prompt(this.sequence_mode.prompt);
-                        this.print(this.sequence_mode.seq[this.sequence_mode.seq_idx]);
+                        this.echo(this.sequence_mode.seq[this.sequence_mode.seq_idx]);
                         this.sequence_mode.seq_idx += 1;
                         this.doSetupSequence();
                     },
                     no: function() {
                         this.sequence_mode.seq_idx += 10;
                         this.sequence_mode.is_active = true;
-                        this.print(this.sequence_mode.seq[this.sequence_mode.seq_idx]);
+                        this.echo(this.sequence_mode.seq[this.sequence_mode.seq_idx]);
                         this.sequence_mode.seq_idx += 1;
                         this.doSetupSequence();
                     }
@@ -222,7 +233,7 @@ var gamebook = function() {
                                                                                                    this.data.setup.weapons.length)];
                                 ws = ' (' + this.action_chart.weaponskill + ')';
                             }
-                            this.print('{0}{1}'.f(this.data.setup.disciplines[i], ws), 'blue');
+                            this.echo('{0}{1}'.f(this.data.setup.disciplines[i], ws), 'blue');
                         }
                         if (this.action_chart.kai_disciplines.length === 5) {
                             this.sequence_mode.is_active = true;
@@ -238,7 +249,7 @@ var gamebook = function() {
                 this.sequence_mode.is_active = false;
                 this.setPressKeyMode(function() {
                     this.action_chart.gold = this.pickRandomNumber() + 10;
-                    this.print('Gold Crowns: {0}'.f(this.action_chart.gold), 'blue');
+                    this.echo('Gold Crowns: {0}'.f(this.action_chart.gold), 'blue');
                     this.sequence_mode.is_active = true;
                     this.term.set_prompt(this.press_key_mode.prompt);
                 });
@@ -265,12 +276,12 @@ var gamebook = function() {
                                 this.action_chart.endurance.current += 4;
                             }
                             this.data.setup.equipment_tmp.push(item_name);
-                            this.print(item_name, 'blue');
+                            this.echo(item_name, 'blue');
                         }
                         if (this.data.setup.equipment_tmp.length === 2) {
                             this.sequence_mode.is_active = true;
                             this.term.set_prompt(this.sequence_mode.prompt);
-                            this.print('Action Chart', 'yellow');
+                            this.echo('Action Chart', 'yellow');
                             this.printActionChart();
                         } else {
                             this.doSetupSequence();
@@ -278,7 +289,7 @@ var gamebook = function() {
                     }
                 });
             } else if (this.sequence_mode.seq_idx === 16) {
-                this.print(this.stars, 'yellow');
+                this.echo(this.stars, 'yellow');
             }
         },
 
@@ -467,8 +478,8 @@ var gamebook = function() {
         isStillAlive: function() {
             if (this.action_chart.endurance.current <= 0) {
                 this.confirm_mode.is_active = false;
-                this.print('You have died..', 'red');
-                this.print(this.stars, 'yellow');
+                this.echo('You have died..', 'red');
+                this.echo(this.stars, 'yellow');
                 this.setPressKeyMode(function() {
                     this.restart();
                 });
@@ -489,24 +500,24 @@ var gamebook = function() {
             var sect = this.data.sections[this.curr_section];
 
             if ((sect.n_picked_items + (item.hasOwnProperty('item_worth') ? item['item_worth'] : 1)) > sect.n_items_to_pick) {
-                this.print('You already picked {0} items.'.f(sect.n_picked_items), 'blue');
+                this.echo('You already picked {0} items.'.f(sect.n_picked_items), 'blue');
                 return;
             }
 
             // backpack special cases
             if (item.name === 'Backpack' && this.action_chart.has_backpack) {
-                this.print('You already have a Backpack.', 'blue');
+                this.echo('You already have a Backpack.', 'blue');
                 return;
             }
 
             if (item.ac_section === 'backpack_items' && !this.action_chart.has_backpack) {
-                this.print('You need a Backpack for this!', 'blue');
+                this.echo('You need a Backpack for this!', 'blue');
                 if (item.hasOwnProperty('is_consumable')) {
-                    this.print('Consume it now?', 'blue');
+                    this.echo('Consume it now?', 'blue');
                     this.setConfirmMode({
                         yes: function() {
                             this.updateEndurance(item.endurance);
-                            this.print('You gain {0} ENDURANCE points.'.f(item.endurance), 'blue');
+                            this.echo('You gain {0} ENDURANCE points.'.f(item.endurance), 'blue');
                             this.term.set_prompt(this.cmd_prompt);
                             removeByName(item.name, sect.items || []);
                         }
@@ -523,11 +534,11 @@ var gamebook = function() {
                 var lim = elems[1];
                 if (item.ac_section === ac_sect && this.action_chart[ac_sect].length === lim) {
                     var comm = (item.hasOwnProperty('gold') || item.hasOwnProperty('gold_max')) ? 'buy' : 'take';
-                    this.print('Cannot {0} {1}: you already carry {2} {3}s.'.f(comm, item.name, lim, elems[2]), 'blue');
+                    this.echo('Cannot {0} {1}: you already carry {2} {3}s.'.f(comm, item.name, lim, elems[2]), 'blue');
                     if (offer_replacement) {
                         var opts = [{name:'None'}].concat(this.action_chart[ac_sect]);
                         each(this, opts, function(i, opt) {
-                            this.print('({0}) {1}'.f(i, opt.name), 'blue');
+                            this.echo('({0}) {1}'.f(i, opt.name), 'blue');
                         });
                         this.setOptionMode({
                             range: [48, 48 + opts.length - 1],
@@ -539,7 +550,7 @@ var gamebook = function() {
                                     return;
                                 }
                                 i -= 1;
-                                this.print('You have replaced your {0} by a {1}.'.f(this.action_chart[ac_sect][i].name, item.name), 'blue');
+                                this.echo('You have replaced your {0} by a {1}.'.f(this.action_chart[ac_sect][i].name, item.name), 'blue');
                                 // remove replaced item from ac
                                 removeByName(this.action_chart[ac_sect][i].name, this.action_chart[ac_sect] || []);
                                 // add new item
@@ -564,7 +575,7 @@ var gamebook = function() {
                 if (this.action_chart.gold >= item.gold) {
                     this.action_chart.gold -= item.gold;
                 } else {
-                    this.print("You don't have enough Gold Crowns.", 'blue');
+                    this.echo("You don't have enough Gold Crowns.", 'blue');
                     return;
                 }
             }
@@ -578,13 +589,13 @@ var gamebook = function() {
             if (item.name === 'Backpack') {
                 this.action_chart.has_backpack = true;
                 this.action_chart.backpack_items = [];
-                this.print('You now carry a Backpack.', 'blue');
+                this.echo('You now carry a Backpack.', 'blue');
             } else if (item.ac_section === 'gold') {
                 this.action_chart.gold += item.value;
-                this.print('The Gold has been added to your Action Chart.', 'blue');
+                this.echo('The Gold has been added to your Action Chart.', 'blue');
             } else {
                 this.action_chart[item.ac_section].push(item);
-                this.print('The {0} has been added to your Action Chart.'.f(item.name), 'blue');
+                this.echo('The {0} has been added to your Action Chart.'.f(item.name), 'blue');
             }
         },
 
@@ -603,7 +614,7 @@ var gamebook = function() {
                         // interpreted as minimum
                         return (that.action_chart[key] < value) ? 1 : 0;
                     default:
-                        this.print('Error: requirement not defined for type {0}.'.f(typeof value), 'blue');
+                        that.echo('Error: requirement not defined for type {0}.'.f(typeof value), 'blue');
                         return 0;
                     };
                 });
@@ -669,14 +680,14 @@ var gamebook = function() {
 
         //------------------------------------------------------------------------------------------------------------
         printSectionNumber: function(si) {
-            this.print('{0}({1})'.f(new Array(38).join(' '), si), 'yellow');
+            this.echo('{0}({1})'.f(new Array(38).join(' '), si), 'yellow');
         },
 
         //------------------------------------------------------------------------------------------------------------
         doSection: function(choice) {
 
             if (!this.data.sections.hasOwnProperty(this.curr_section)) {
-                this.print('Error: section {0} is not implemented.'.f(this.curr_section), 'blue');
+                this.echo('Error: section {0} is not implemented.'.f(this.curr_section), 'blue');
                 return;
             }
 
@@ -686,33 +697,39 @@ var gamebook = function() {
             }
 
             if (choice !== undefined) {
+
+                if (choice.hasOwnProperty('is_special')) {
+                    // careful here: the key is a pair: [prev_section, choice.section], which
+                    // gets flattened to a comma-sep string as the dict key
+                    if (this.special_choices.hasOwnProperty([this.curr_section, choice.section])) {
+                        if (!this.special_choices[[this.curr_section, choice.section]](this, choice)) {
+                            this.echo('This is not possible', 'blue');
+                            return;
+                        }
+                    } else {
+                        this.echo('Error: special choice {0} for section {1} is not implemented.'.f(choice.section, this.prev_section), 'blue');
+                    }
+                }
+
                 this.prev_section = this.curr_section;
                 this.curr_section = choice.section;
                 // some choices have modifiers
                 if (choice.hasOwnProperty('endurance')) {
                     this.updateEndurance(choice.endurance);
                     if (choice.endurance < 0) {
-                        this.print('You lose ENDURANCE.', 'blue');
+                        this.echo('You lose ENDURANCE.', 'blue');
                     } else {
-                        this.print('You gain ENDURANCE.', 'blue');
+                        this.echo('You gain ENDURANCE.', 'blue');
                     }
                 }
                 if (choice.hasOwnProperty('gold')) {
                     this.action_chart.gold += choice.gold;
-                    this.print('You now have {0} Gold Crowns.'.f(this.action_chart.gold), 'blue');
+                    this.echo('You now have {0} Gold Crowns.'.f(this.action_chart.gold), 'blue');
                 }
                 if (!isInArray(this.curr_section, this.visited_sections)) {
                     this.visited_sections.push(this.curr_section);
                 }
-                if (choice.hasOwnProperty('is_special')) {
-                    // careful here: the key is a pair: [prev_section, choice.section], which
-                    // gets flattened to a comma-sep string as the dict key
-                    if (this.special_choices.hasOwnProperty([this.prev_section, choice.section])) {
-                        this.special_choices[[this.prev_section, choice.section]](this, choice);
-                    } else {
-                        this.print('Error: special choice {0} for section {1} is not implemented.'.f(choice.section, this.prev_section), 'blue');
-                    }
-                }
+
             }
 
             var sect = this.data.sections[this.curr_section];
@@ -726,16 +743,16 @@ var gamebook = function() {
                 sect.n_items_to_pick = sect.hasOwnProperty('n_items_to_pick') ? sect.n_items_to_pick : Number.POSITIVE_INFINITY;
                 sect.n_picked_items = 0;
                 this.printSectionNumber(this.curr_section);
-                this.print(sect.text);
+                this.echo(sect.text);
                 if (isInArray('Healing', this.action_chart.kai_disciplines) && !sect.hasOwnProperty('enemies')) {
                     if (this.action_chart.endurance.current < this.calculateEndurance().val) {
                         this.updateEndurance(1);
-                        this.print('Healing..', 'blue');
+                        this.echo('Healing..', 'blue');
                     }
                 }
 
                 if (this.hasNonAutoItems(sect)) {
-                    this.print('There are items.', 'blue');
+                    this.echo('There are items.', 'blue');
                 }
 
                 if (sect.hasOwnProperty('endurance')) {
@@ -743,15 +760,15 @@ var gamebook = function() {
                         return;
                     }
                     if (sect.endurance < 0) {
-                        this.print('You lose ENDURANCE.', 'blue');
+                        this.echo('You lose ENDURANCE.', 'blue');
                     } else {
-                        this.print('You gain ENDURANCE.', 'blue');
+                        this.echo('You gain ENDURANCE.', 'blue');
                     }
                 }
 
                 if (this.prev_section && this.data.sections[this.prev_section].hasOwnProperty('must_eat') &&
                     this.data.sections[this.prev_section].must_eat) {
-                    this.print('You are hungry and lose ENDURANCE.', 'blue');
+                    this.echo('You are hungry and lose ENDURANCE.', 'blue');
                     // must_eat is possibly an int, to specify a endurance penalty different than the default (-3)
                     var e = typeof this.data.sections[this.prev_section].must_eat === 'number' ? this.data.sections[this.prev_section].must_eat : -3;
                     if (!this.updateEndurance(e)) {
@@ -770,7 +787,7 @@ var gamebook = function() {
                     if (this.special_sections.hasOwnProperty(this.curr_section)) {
                         this.special_sections[this.curr_section](this, sect);
                     } else {
-                        this.print('Error: special section {0} is not implemented.'.f(this.curr_section), 'blue');
+                        this.echo('Error: special section {0} is not implemented.'.f(this.curr_section), 'blue');
                     }
                     return;
                 }
@@ -784,7 +801,7 @@ var gamebook = function() {
                         if (this.special_combats.hasOwnProperty(this.curr_section)) {
                             this.special_combats[this.curr_section](this, sect, sect.combat.enemies[0], 0);
                         } else {
-                            this.print('Error: special combat section {0} is not implemented.'.f(this.curr_section), 'blue');
+                            this.echo('Error: special combat section {0} is not implemented.'.f(this.curr_section), 'blue');
                         }
                     } else {
                         this.doCombat(sect.combat.enemies[0], 0);
@@ -815,8 +832,8 @@ var gamebook = function() {
                     var r = this.pickRandomNumber();
                     each(this, sect.choices, function(i, choice) {
                         if (r >= choice.range[0] && r <= choice.range[1]) {
-                            this.print('You have picked {0}'.f(r), 'blue');
-                            this.print('({0})'.f(choice.text));
+                            this.echo('You have picked {0}'.f(r), 'blue');
+                            this.echo('({0})'.f(choice.text));
                             this.setConfirmMode({
                                 prompt: '[[;#000;#ff0][continue y/n]]',
                                 yes: function() {
@@ -832,7 +849,7 @@ var gamebook = function() {
                     });
                 });
             } else if (sect.choices.length === 1 && !this.hasNonAutoItems(sect)) {
-                this.print(sect.choices[0].text);
+                this.echo(sect.choices[0].text);
                 this.setConfirmMode({
                     prompt: '[[;#000;#ff0][continue y/n]]',
                     yes: function() {
@@ -841,7 +858,7 @@ var gamebook = function() {
                 });
             } else if (sect.choices.length === 0) {
                 // death
-                this.print(this.stars, 'yellow');
+                this.echo(this.stars, 'yellow');
                 this.setPressKeyMode(function() { // restart
                     this.initSequenceMode(this.data.setup.sequence, 'gamebook_setup');
                     this.doSetupSequence();
@@ -851,7 +868,7 @@ var gamebook = function() {
                 each(this, sect.choices, function(i, choice) {
                     if (choice.hasOwnProperty('auto') &&
                         this.satisfiesChoiceRequirements(choice)) {
-                        this.print(choice.text);
+                        this.echo(choice.text);
                         this.setConfirmMode({
                             yes: function() {
                                 this.doSection(choice);
@@ -888,14 +905,14 @@ var gamebook = function() {
                 }
                 enemy.endurance -= Math.min(pts[0], enemy.endurance);
                 ac.endurance.current -= Math.min(pts[1], ac.endurance.current);
-                this.print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], ac.endurance.current), 'red');
+                this.echo('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], ac.endurance.current), 'red');
                 alive = this.isStillAlive();
                 if (enemy.endurance <= 0 && alive) {
-                    this.print('{0} has died.'.f(enemy.name), 'red');
+                    this.echo('{0} has died.'.f(enemy.name), 'red');
                     sect.combat.enemies.remove(sect.combat.enemies[0]);
                     if (sect.combat.enemies.length === 0) {
                         win_choice = sect.choices[sect.combat.win.choice];
-                        this.print('({0})'.f(win_choice.text));
+                        this.echo('({0})'.f(win_choice.text));
                         this.setConfirmMode({
                             prompt: '[[;#000;#ff0][continue y/n]]',
                             yes: function() {
@@ -918,7 +935,7 @@ var gamebook = function() {
             }, this);
 
             if (round === 0) {
-                this.print('Your Combat Ratio is {0}'.f(combat_ratio), 'red');
+                this.echo('Your Combat Ratio is {0}'.f(combat_ratio), 'red');
             }
 
             if (sect.combat.hasOwnProperty('evasion') && round >= sect.combat.evasion.n_rounds) {
@@ -933,9 +950,9 @@ var gamebook = function() {
                         pts = this.combat_results_table[r][s];
                         ac.endurance.current -= Math.min(pts[0], ac.endurance.current);
                         enemy.endurance -= pts[1];
-                        this.print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], ac.endurance.current), 'red');
+                        this.echo('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], ac.endurance.current), 'red');
                         evasion_choice = sect.choices[sect.combat.evasion.choice];
-                        this.print('({0})'.f(evasion_choice.text));
+                        this.echo('({0})'.f(evasion_choice.text));
                         this.setPressKeyMode(function() {
                             this.doSection(evasion_choice);
                         });
@@ -963,7 +980,10 @@ var gamebook = function() {
 
     $(document).ready(function($) {
 
-        // parser
+        ////////////////////
+        // command parser //
+        ////////////////////
+
         $('body').terminal(function(_command, term) {
 
             var command = _command.trim().toLowerCase();
@@ -981,7 +1001,7 @@ var gamebook = function() {
             engine.term.echo('\n');
 
             if (command === 'help' || command[0] === '?') {
-                engine.print(engine.help_str, 'blue');
+                engine.echo(engine.help_str, 'blue');
                 return;
             }
 
@@ -992,12 +1012,12 @@ var gamebook = function() {
 
             if (command === 'again') {
                 engine.printSectionNumber(engine.curr_section);
-                engine.print(sect.text);
+                engine.echo(sect.text);
                 return;
             }
 
             if (command === 'restart') {
-                engine.print('Do you really want to restart?', 'blue');
+                engine.echo('Do you really want to restart?', 'blue');
                 engine.setConfirmMode({
                     yes: function() {
                         engine.restart();
@@ -1011,7 +1031,7 @@ var gamebook = function() {
                 localStorage['prev_section'] = JSON.stringify(engine.prev_section);
                 localStorage['curr_section'] = JSON.stringify(engine.curr_section);
                 localStorage['visited_sections'] = JSON.stringify(engine.visited_sections);
-                engine.print("The game state was saved (use 'load' to restore it at any moment).", 'blue');
+                engine.echo("The game state was saved (use 'load' to restore it at any moment).", 'blue');
                 return;
             }
 
@@ -1024,11 +1044,11 @@ var gamebook = function() {
                         engine.prev_section = JSON.parse(localStorage['prev_section']);
                         engine.curr_section = JSON.parse(localStorage['curr_section']);
                         engine.visited_sections = JSON.parse(localStorage['visited_sections']);
-                        engine.print("The previous game state was restored.", 'blue');
+                        engine.echo("The previous game state was restored.", 'blue');
                         engine.doSection();
                     });
                 } else {
-                    engine.print('There is no saved state to restore.', 'blue');
+                    engine.echo('There is no saved state to restore.', 'blue');
                 }
                 return;
             }
@@ -1036,7 +1056,7 @@ var gamebook = function() {
             if (isInArray(command, ['choices', 'cheat'])) {
                 $.each(sect.choices, function(i, choice) {
                     if (!choice.hasOwnProperty('is_artificial')) {
-                        engine.print(choice.text);
+                        engine.echo(choice.text);
                     }
                 });
                 return;
@@ -1052,9 +1072,9 @@ var gamebook = function() {
                     });
                 });
                 if (words.length > 0) {
-                    engine.print(words[Math.floor(Math.random() * words.length)], 'blue');
+                    engine.echo(words[Math.floor(Math.random() * words.length)], 'blue');
                 } else {
-                    engine.print('Nothing to hint about here!', 'blue');
+                    engine.echo('Nothing to hint about here!', 'blue');
                 }
                 return;
             }
@@ -1062,7 +1082,7 @@ var gamebook = function() {
             if (command === 'auto') {
                 engine.autocompletion_enabled = !engine.autocompletion_enabled;
                 engine.setAutocompletionWords(sect);
-                engine.print('Word autocompletion is now {0}.'.f(engine.autocompletion_enabled ? 'on' : 'off'), 'blue');
+                engine.echo('Word autocompletion is now {0}.'.f(engine.autocompletion_enabled ? 'on' : 'off'), 'blue');
                 return;
             }
 
@@ -1081,42 +1101,42 @@ var gamebook = function() {
             if (m) {
                 item = engine.matchItem(m[1].toLowerCase());
                 if (item) {
-                    engine.print('Drop your {0}?'.f(item.name), 'blue');
+                    engine.echo('Drop your {0}?'.f(item.name), 'blue');
                     engine.setConfirmMode({
                         yes: function() {
                             if (item.ac_section === 'special_items') {
-                                engine.print('You cannot drop that item here.', 'blue');
+                                engine.echo('You cannot drop that item here.', 'blue');
                             } else {
                                 engine.action_chart[item.ac_section].remove(item);
                                 engine.updateEndurance();
-                                engine.print('The {0} has been removed from your Action Chart.'.f(item.name), 'blue');
+                                engine.echo('The {0} has been removed from your Action Chart.'.f(item.name), 'blue');
                             }
                             engine.term.set_prompt(engine.cmd_prompt);
                         }
                     });
                     return;
                 }
-                engine.print('(If you wanted to drop an item, not sure which one.)', 'blue');
+                engine.echo('(If you wanted to drop an item, not sure which one.)', 'blue');
             }
 
             m = command.match(/^use (.+)/);
             if (m) {
                 item = engine.matchItem(m[1].toLowerCase(), ['backpack_items', 'special_items']);
                 if (item) {
-                    engine.print('Use your {0}?'.f(item.name), 'blue');
+                    engine.echo('Use your {0}?'.f(item.name), 'blue');
                     engine.setConfirmMode({
                         yes: function() {
                             if (item.hasOwnProperty('is_consumable')) {
                                 if (item.hasOwnProperty('endurance')) {
                                     engine.updateEndurance(item.endurance);
-                                    engine.print('You gain {0} ENDURANCE points.'.f(item.endurance), 'blue');
+                                    engine.echo('You gain {0} ENDURANCE points.'.f(item.endurance), 'blue');
                                 }
                                 engine.action_chart[item.ac_section].remove(item);
                             } else {
                                 if (item.name === 'Meal') {
-                                    engine.print("I know I'm a little fussy, but you can only 'eat' Meals (not 'use' them), sorry..", 'blue');
+                                    engine.echo("I know I'm a little fussy, but you can only 'eat' Meals (not 'use' them), sorry..", 'blue');
                                 } else {
-                                    engine.print("I don't know how to use that.", 'blue');
+                                    engine.echo("I don't know how to use that.", 'blue');
                                 }
                             }
                             engine.term.set_prompt(engine.cmd_prompt);
@@ -1124,27 +1144,27 @@ var gamebook = function() {
                     });
                     return;
                 }
-                engine.print('(If you wanted to use an item, not sure which one.)', 'blue');
+                engine.echo('(If you wanted to use an item, not sure which one.)', 'blue');
             }
 
             if (command.match(/^eat.*/)) {
                 if (!sect.hasOwnProperty('must_eat')) {
-                    engine.print('You are not hungry enough right now.', 'blue');
+                    engine.echo('You are not hungry enough right now.', 'blue');
                 } else {
                     if (!isInArray('Meal', getNames(engine.action_chart.backpack_items))) {
                         // special rule for Laumspur Meal
                         if (!isInArray('Laumspur Meal', getNames(engine.action_chart.backpack_items))) {
-                            engine.print('You have no Meal left.', 'blue');
+                            engine.echo('You have no Meal left.', 'blue');
                         } else {
                             removeByName('Laumspur Meal', engine.action_chart.backpack_items);
                             engine.data.sections[engine.curr_section].must_eat = false;
                             engine.updateEndurance(3);
-                            engine.print('You eat a Laumspur Meal (and gain ENDURANCE).', 'blue');
+                            engine.echo('You eat a Laumspur Meal (and gain ENDURANCE).', 'blue');
                         }
                     } else {
                         removeByName('Meal', engine.action_chart.backpack_items);
                         engine.data.sections[engine.curr_section].must_eat = false;
-                        engine.print('You eat a Meal.', 'blue');
+                        engine.echo('You eat a Meal.', 'blue');
                     }
                 }
                 return;
@@ -1161,7 +1181,7 @@ var gamebook = function() {
                     }
                 });
                 if (!valid_section_input_found) {
-                    engine.print('This is not possible.', 'blue');
+                    engine.echo('This is not possible.', 'blue');
                     engine.term.set_prompt(engine.cmd_prompt);
                 }
                 return;
@@ -1274,7 +1294,7 @@ var gamebook = function() {
 
             // no match, and more than one real (i.e. not artificially added) choices
             if (choice_match_results[0][0] === 0) {
-                engine.print('Your command does not apply to the current context.', 'blue');
+                engine.echo('Your command does not apply to the current context.', 'blue');
                 return;
             }
 
@@ -1284,7 +1304,7 @@ var gamebook = function() {
                 if (sect.hasOwnProperty('no_ambiguity')) {
                     // simply continue.. (and we'll pick first)
                 } else {
-                    engine.print('Your command is ambiguous: try to reword it.', 'blue');
+                    engine.echo('Your command is ambiguous: try to reword it.', 'blue');
                     return;
                 }
             }
@@ -1293,13 +1313,13 @@ var gamebook = function() {
             choice = choice_match_results[0][1];
 
             if (!choice.hasOwnProperty('is_artificial')) { // regular book choice
-                engine.print(choice.text);
+                engine.echo(choice.text);
                 engine.setConfirmMode({
                     yes: function() {
                         if (engine.satisfiesChoiceRequirements(choice)) {
                             engine.doSection(choice);
                         } else {
-                            engine.print('This is not possible.', 'blue');
+                            engine.echo('This is not possible.', 'blue');
                             engine.term.set_prompt(engine.cmd_prompt);
                         }
                     },
@@ -1309,10 +1329,10 @@ var gamebook = function() {
                                 return !c.hasOwnProperty('is_artificial');
                             });
                             if (real_choices.length !== 2) {
-                                engine.print('Error: section {0} has alternate_choices for {1} choices.'.f(engine.curr_section, real_choices.length), 'blue');
+                                engine.echo('Error: section {0} has alternate_choices for {1} choices.'.f(engine.curr_section, real_choices.length), 'blue');
                             }
                             var altern_choice = choice === real_choices[0] ? real_choices[1] : real_choices[0];
-                            engine.print(altern_choice.text);
+                            engine.echo(altern_choice.text);
                             engine.setConfirmMode({
                                 yes: function() {
                                     engine.doSection(altern_choice);
@@ -1328,16 +1348,16 @@ var gamebook = function() {
                     var item = choice.item;
                     if (command.match(/^sell/) && item.hasOwnProperty('sellable')) {
                         if (!isInArray(item.name, getNames(engine.action_chart[item.ac_section]))) {
-                            engine.print("You don't possess that item.", 'blue');
+                            engine.echo("You don't possess that item.", 'blue');
                             engine.term.set_prompt(engine.cmd_prompt);
                             return;
                         }
-                        engine.print('Sell your {0}?'.f(item.name), 'blue');
+                        engine.echo('Sell your {0}?'.f(item.name), 'blue');
                         engine.setConfirmMode({
                             yes: function() {
                                 removeByName(item.name, engine.action_chart[item.ac_section]);
                                 engine.action_chart.gold += item.sellable;
-                                engine.print('You gain {0} Gold Crowns.'.f(item.sellable), 'blue');
+                                engine.echo('You gain {0} Gold Crowns.'.f(item.sellable), 'blue');
                                 engine.term.set_prompt(engine.cmd_prompt);
                             },
                             no: function() {
@@ -1345,7 +1365,7 @@ var gamebook = function() {
                             }
                         });
                     } else {
-                        engine.print('{0} the {1}?'.f(item.hasOwnProperty('gold') || item.hasOwnProperty('gold_max') ? 'Buy' : 'Take',
+                        engine.echo('{0} the {1}?'.f(item.hasOwnProperty('gold') || item.hasOwnProperty('gold_max') ? 'Buy' : 'Take',
                                                       item.name));
                         engine.setConfirmMode({
                             yes: function() {
@@ -1363,7 +1383,7 @@ var gamebook = function() {
                     if (engine.special_choices.hasOwnProperty([engine.curr_section, choice.section])) {
                         engine.special_choices[[engine.curr_section, choice.section]](engine, choice);
                     } else {
-                        engine.print('Error: special choice {0} for section {1} is not implemented.'.f(choice.section, engine.curr_section), 'blue');
+                        engine.echo('Error: special choice {0} for section {1} is not implemented.'.f(choice.section, engine.curr_section), 'blue');
                     }
                 }
 
@@ -1373,20 +1393,23 @@ var gamebook = function() {
     //------------------------------------------------------------------------------------------------------------
 
         }, {
+
             prompt: '',
             greetings: '',
             history: false,
             tabcompletion: false,
+            displayExceptions: false,
 
             keydown: function(event, term) {
+
                 if (engine.sequence_mode.is_active) {
                     if (engine.sequence_mode.seq_idx < engine.sequence_mode.seq.length) {
                         var seq_part = engine.sequence_mode.seq[engine.sequence_mode.seq_idx];
                         if ($.isArray(seq_part)) {
-                            engine.print(seq_part[0], 'yellow');
-                            engine.print(seq_part[1]);
+                            engine.echo(seq_part[0], 'yellow');
+                            engine.echo(seq_part[1]);
                         } else {
-                            engine.print(seq_part);
+                            engine.echo(seq_part);
                         }
                         engine.sequence_mode.seq_idx += 1;
                         if (engine.sequence_mode.which === 'gamebook_setup') {
@@ -1395,7 +1418,7 @@ var gamebook = function() {
                         if (engine.sequence_mode.which === 'engine_intro') {
                             // reached end of engine intro
                             if (engine.sequence_mode.seq_idx === engine.sequence_mode.seq.length) {
-                                engine.print('Do you want to read the book intro?');
+                                engine.echo('Do you want to read the book intro?');
                                 engine.sequence_mode.is_active = false;
                                 engine.setConfirmMode({
                                     yes: function() {
@@ -1520,7 +1543,7 @@ var gamebook = function() {
                         engine.action_chart.combat_skill = 30;
                         engine.action_chart.endurance.initial = 20;
                         engine.action_chart.endurance.current = 18;
-                        engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Sixth Sense'];
+                        engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Tracking'];
                         engine.action_chart.weaponskill = 'Spear';
                         //addItem({name: 'Quarterstaff',ac_section:'weapons'});
                         engine.addItem({name: 'Short Sword', ac_section: 'weapons'});
@@ -1529,7 +1552,7 @@ var gamebook = function() {
                             //engine.addItem({name: 'Meal', ac_section: 'backpack_items'});
                         }
                         engine.addItem({name: 'Meal', ac_section: 'backpack_items'});
-                        //engine.addItem({name: 'Laumspur Meal', ac_section: 'backpack_items'});
+                        engine.addItem({name: 'Laumspur Meal', ac_section: 'backpack_items'});
                         engine.addItem({name: 'Ticket', ac_section: 'special_items'});
                         engine.addItem({"name": "Magic Spear", "ac_section": "special_items", "is_weaponlike": true,
                                         "weaponskills": ["Spear"]});

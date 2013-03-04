@@ -8,8 +8,8 @@ var fotw_special_sections = {
             }
             $.each(sect.choices, function(i, choice) {
                 if (r >= choice.range[0] && r <= choice.range[1]) {
-                    engine.print('You have picked {0}'.f(r), 'blue');
-                    engine.print('({0})'.f(choice.text));
+                    engine.echo('You have picked {0}'.f(r), 'blue');
+                    engine.echo('({0})'.f(choice.text));
                     engine.setConfirmMode({
                         prompt: '[[;#000;#ff0][continue y/n]]',
                         yes: function() {
@@ -31,8 +31,8 @@ var fotw_special_sections = {
             var r = engine.pickRandomNumber(),
             g = r ? r * 3 : 30;
             engine.action_chart.gold += g;
-            engine.print('You have picked {0}: {1} Gold Crowns.'.f(r, g), 'blue');
-            engine.print('You then pay 1 Gold Crown for the room.', 'blue');
+            engine.echo('You have picked {0}: {1} Gold Crowns.'.f(r, g), 'blue');
+            engine.echo('You then pay 1 Gold Crown for the room.', 'blue');
             engine.doSection();
         });
     },
@@ -42,7 +42,7 @@ var fotw_special_sections = {
             var r = engine.pickRandomNumber(),
             g = r ? r : 10;
             engine.action_chart.gold -= g;
-            engine.print('You have picked {0}: you lose {1} Gold Crowns.'.f(r, g), 'blue');
+            engine.echo('You have picked {0}: you lose {1} Gold Crowns.'.f(r, g), 'blue');
             engine.doSection();
         });
     },
@@ -50,7 +50,7 @@ var fotw_special_sections = {
     '69': function(engine, sect) {
         if (!isInArray('Mindshield', engine.action_chart.kai_disciplines)) {
             engine.updateEndurance(-2);
-            engine.print('You lost ENDURANCE.', 'blue');
+            engine.echo('You lost ENDURANCE.', 'blue');
         }
         engine.doSection();
     },
@@ -59,16 +59,16 @@ var fotw_special_sections = {
         engine.setPressKeyMode(function() {
             var r = engine.pickRandomNumber();
             engine.action_chart.gold += (r + 5);
-            engine.print('You have picked {0}: you win {1} Gold Crowns.'.f(r, (r + 5)), 'blue');
+            engine.echo('You have picked {0}: you win {1} Gold Crowns.'.f(r, (r + 5)), 'blue');
             engine.action_chart.gold -= 1;
-            engine.print('You pay 1 Gold Crown for the room.', 'blue');
+            engine.echo('You pay 1 Gold Crown for the room.', 'blue');
             engine.doSection();
         });
     },
 
     '122': function(engine, sect) {
         if (isInArray('Sixth Sense', engine.action_chart.kai_disciplines)) {
-            engine.print(sect.choices[0].text);
+            engine.echo(sect.choices[0].text);
             engine.setConfirmMode({
                 yes: function() {
                     engine.doSection(sect.choices[0]);
@@ -81,7 +81,7 @@ var fotw_special_sections = {
                 }
             });
         } else {
-            engine.print('If not, pick a number from the Random Number Table.');
+            engine.echo('If not, pick a number from the Random Number Table.');
             sect.choices.remove(sect.choices[0]);
             sect.is_random_pick = true;
             engine.doSection();
@@ -91,21 +91,21 @@ var fotw_special_sections = {
     '141': function(engine, sect) {
         if (isInArray('Chainmail Waistcoat', getNames(engine.action_chart.special_items))) {
             removeByName('Chainmail Waistcoat', engine.action_chart.special_items);
-            engine.print('You lose your Chainmail Waistcoat.', 'blue');
+            engine.echo('You lose your Chainmail Waistcoat.', 'blue');
         }
         engine.doSection();
     },
 
     '144': function(engine, sect) {
         engine.action_chart.gold = 0;
-        engine.print('You have lost all your Gold.', 'blue');
+        engine.echo('You have lost all your Gold.', 'blue');
         engine.doSection();
     },
 
     '150': function(engine, sect) {
         if (isInArray('Hunting', action_chart.kai_disciplines)) {
             sect.must_eat = false;
-            engine.print('You use your Kai Discipline of Hunting.', 'blue');
+            engine.echo('You use your Kai Discipline of Hunting.', 'blue');
         }
         engine.doSection();
     },
@@ -116,7 +116,7 @@ var fotw_special_sections = {
         engine.action_chart.special_items = [];
         engine.action_chart.gold = 0;
         engine.action_chart.has_backpack = false;
-        engine.print('You have lost all your belongings (including your Backpack).', 'blue');
+        engine.echo('You have lost all your belongings (including your Backpack).', 'blue');
         engine.doSection();
     },
 
@@ -126,7 +126,7 @@ var fotw_special_sections = {
             sect.gain = 0; // max of 40
         }
         if (engine.action_chart.gold === 0) {        // don't want to offer it
-            engine.print("You don't have enough Gold Crowns to play.", 'blue');
+            engine.echo("You don't have enough Gold Crowns to play.", 'blue');
             engine.doSection();
             return;
         }
@@ -137,7 +137,7 @@ var fotw_special_sections = {
                     prompt: '[[;#000;#ff0][how much gold to bet]]',
                     callback: function(n_golds) {
                         if (n_golds > engine.action_chart.gold) {
-                            engine.print("You don't have that much Gold Crowns.", 'blue');
+                            engine.echo("You don't have that much Gold Crowns.", 'blue');
                             engine.special_sections['238'](engine, sect);
                             return;
                         }
@@ -156,17 +156,17 @@ var fotw_special_sections = {
                                 if (g > 0) {
                                     if (sect.gain + g >= 40) {
                                         engine.action_chart.gold += (40 - sect.gain);
-                                        engine.print('The ball falls on {0}: you win {1} Gold Crowns ({2} left).'.f(r, (40 - sect.gain), engine.action_chart.gold), 'blue');
-                                        engine.print('You have gained the table maximum.', 'blue');
+                                        engine.echo('The ball falls on {0}: you win {1} Gold Crowns ({2} left).'.f(r, (40 - sect.gain), engine.action_chart.gold), 'blue');
+                                        engine.echo('You have gained the table maximum.', 'blue');
                                         engine.doSection();
                                         return;
                                     }
                                     sect.gain += g;
                                     engine.action_chart.gold += g;
-                                    engine.print('The ball falls on {0}: you win {1} Gold Crowns ({2} left).'.f(r, g, engine.action_chart.gold), 'blue');
+                                    engine.echo('The ball falls on {0}: you win {1} Gold Crowns ({2} left).'.f(r, g, engine.action_chart.gold), 'blue');
                                 } else {
                                     engine.action_chart.gold += g;
-                                    engine.print('The ball falls on {0}: you lose {1} Gold Crowns ({2} left).'.f(r, -g, engine.action_chart.gold), 'blue');
+                                    engine.echo('The ball falls on {0}: you lose {1} Gold Crowns ({2} left).'.f(r, -g, engine.action_chart.gold), 'blue');
                                     if (engine.action_chart.gold === 0) {
                                         delete sect.choices[0]['is_artificial'];
                                         sect.choices = [sect.choices[0]];
@@ -189,7 +189,7 @@ var fotw_special_sections = {
         } else {
             engine.updateEndurance(Math.round((engine.calculateEndurance().val - engine.action_chart.endurance.current) / 2));
         }
-        engine.print('Healing..', 'blue');
+        engine.echo('Healing..', 'blue');
         engine.doSection();
     },
 
@@ -204,7 +204,7 @@ var fotw_special_sections = {
 
     '308': function(engine, sect) {
         if (engine.action_chart.gold < 3) {
-            engine.print("You don't have enough Gold Crowns to play.", 'blue');
+            engine.echo("You don't have enough Gold Crowns to play.", 'blue');
             engine.doSection();
             return;
         }
@@ -228,7 +228,7 @@ var fotw_special_sections = {
                     msg += 'You lose 3 Gold Crowns.';
                     engine.action_chart.gold -= Math.min(engine.action_chart.gold, 3);
                 }
-                engine.print(msg, 'blue');
+                engine.echo(msg, 'blue');
                 engine.special_sections['308'](engine, sect);
             }
         });
@@ -236,14 +236,14 @@ var fotw_special_sections = {
 
     '313': function(engine, sect) {
         removeByName('Magic Spear', engine.action_chart.special_items);
-        engine.print('You have lost the Magic Spear.', 'blue');
+        engine.echo('You have lost the Magic Spear.', 'blue');
         engine.doSection();
     },
 
     '337': function(engine, sect) {
         engine.action_chart.weapons = [];
         engine.action_chart.backpack_items = [];
-        engine.print('You have lost your Weapons and Backpack Items.', 'blue');
+        engine.echo('You have lost your Weapons and Backpack Items.', 'blue');
         engine.doSection();
     }
 
@@ -253,31 +253,9 @@ var fotw_special_sections = {
 
 var fotw_special_choices = {
 
-    // section,choice
-
-    '47,111': function(engine, choice) {
-    },
-
-    '75,142': function(engine, choice) {
-        engine.action_chart.gold -= 10;
-    },
-
-    "93,137": function(engine, choice) {
-        var m = engine.command.match(/\d+/);
-        if (m) {
-            engine.print('Give {0} Gold Crowns to the beggars?'.f(m[0]), 'blue');
-            engine.setConfirmMode({
-                yes: function() {
-                    engine.action_chart.gold -= Math.min(parseInt(m[0]), engine.action_chart.gold);
-                    engine.print('You have {0} Gold Crowns remaining.'.f(engine.action_chart.gold));
-                    engine.term.set_prompt(engine.cmd_prompt);
-                }
-            });
-            return;
-        } else {
-            engine.print('This command does not apply to the current context.', 'blue');
-        }
-    },
+    // section,choice -> fn
+    // returning false from a function will prevent completing the choice
+    // (the same as would satisfiesRequirements)
 
     '36,145': function(engine, choice) {
         // search for any Laumspur product
@@ -287,29 +265,49 @@ var fotw_special_choices = {
                 return false;
             }
         });
+        return true;
+    },
+
+    '47,111': function(engine, choice) {
+        return isInArray('15', engine.visited_sections);
+    },
+
+    '75,142': function(engine, choice) {
+        engine.action_chart.gold -= 10;
+        return true;
+    },
+
+    "93,137": function(engine, choice) {
+        var m = engine.command.match(/\d+/);
+        if (m) {
+            engine.echo('Give {0} Gold Crowns to the beggars?'.f(m[0]), 'blue');
+            engine.setConfirmMode({
+                yes: function() {
+                    engine.action_chart.gold -= Math.min(parseInt(m[0]), engine.action_chart.gold);
+                    engine.echo('You have {0} Gold Crowns remaining.'.f(engine.action_chart.gold));
+                    engine.term.set_prompt(engine.cmd_prompt);
+                }
+            });
+            return;
+        } else {
+            engine.echo('This command does not apply to the current context.', 'blue');
+        }
+        return true;
     },
 
      '217,199': function(engine, choice) {
          engine.action_chart.gold -= 1;
-         engine.print('You pay 1 Gold Crown.', 'blue');
+         engine.echo('You pay 1 Gold Crown.', 'blue');
+         return true;
      },
 
     "338,349": function(engine, choice) {
         removeByName('Magic Spear', engine.action_chart.special_items);
-        engine.print('You have lost your Magic Spear', 'blue');
+        engine.echo('You have lost your Magic Spear', 'blue');
+        return true;
     }
 
 };
-
-//------------------------------------------------------------------------------------------------------------
-
-var fotw_special_choice_requirements = {
-
-    '47,111': function(engine, choice) {
-        return isInArray('15', engine.visited_sections);
-    }
-
-}
 
 //------------------------------------------------------------------------------------------------------------
 
@@ -330,12 +328,12 @@ var fotw_special_combats = {
             if (enemy.hasOwnProperty('double_damage')) { pts[0] *= 2; }
             enemy.endurance -= Math.min(pts[0], enemy.endurance);
             ac.endurance.current -= Math.min(pts[1], ac.endurance.current);
-            engine.print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], ac.endurance.current), 'red');
+            engine.echo('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], ac.endurance.current), 'red');
             alive = engine.isStillAlive();
             if (enemy.endurance <= 0 && alive) {
-                engine.print('{0} has died.'.f(enemy.name), 'red');
+                engine.echo('{0} has died.'.f(enemy.name), 'red');
                 win_choice = sect.choices[sect.combat.win.choice];
-                engine.print('({0})'.f(win_choice.text));
+                engine.echo('({0})'.f(win_choice.text));
                 engine.setConfirmMode({
                     prompt: '[[;#000;#ff0][continue y/n]]',
                     yes: function() {
@@ -355,11 +353,11 @@ var fotw_special_combats = {
         // special aspect
         if (round === 0) {
             combat_ratio = (engine.calculateCombatSkill(enemy).val + 2) - enemy.combat_skill;
-            engine.print('Your Combat Ratio is {0}'.f(combat_ratio), 'red');
+            engine.echo('Your Combat Ratio is {0}'.f(combat_ratio), 'red');
         } else {
             combat_ratio = engine.calculateCombatSkill(enemy).val - enemy.combat_skill;
             if (round === 1) {
-                engine.print('Your Combat Ratio is now {0}'.f(combat_ratio), 'red');
+                engine.echo('Your Combat Ratio is now {0}'.f(combat_ratio), 'red');
             }
         }
 
@@ -375,9 +373,9 @@ var fotw_special_combats = {
                     pts = engine.combat_results_table[r][s];
                     ac.endurance.current -= Math.min(pts[0], ac.endurance.current);
                     enemy.endurance -= pts[1];
-                    engine.print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], ac.endurance.current), 'red');
+                    engine.echo('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], ac.endurance.current), 'red');
                     evasion_choice = sect.choices[sect.combat.evasion.choice];
-                    engine.print('({0})'.f(evasion_choice.text));
+                    engine.echo('({0})'.f(evasion_choice.text));
                     engine.setPressKeyMode(function() {
                         engine.doSection(evasion_choice);
                     });
@@ -414,12 +412,12 @@ var fotw_special_combats = {
             if (enemy.hasOwnProperty('double_damage')) { pts[0] *= 2; }
             enemy.endurance -= Math.min(pts[0], enemy.endurance);
             ac.endurance.current -= Math.min(pts[1], ac.endurance.current);
-            engine.print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], ac.endurance.current), 'red');
+            engine.echo('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], ac.endurance.current), 'red');
             alive = engine.isStillAlive();
             if (enemy.endurance <= 0 && alive) {
-                engine.print('{0} has died.'.f(enemy.name), 'red');
+                engine.echo('{0} has died.'.f(enemy.name), 'red');
                 win_choice = sect.choices[sect.combat.win.choice];
-                engine.print('({0})'.f(win_choice.text));
+                engine.echo('({0})'.f(win_choice.text));
                 engine.setConfirmMode({
                     prompt: '[[;#000;#ff0][continue y/n]]',
                     yes: function() {
@@ -437,7 +435,7 @@ var fotw_special_combats = {
         };
 
         if (round === 0) {
-            engine.print('Your Combat Ratio is {0}'.f(combat_ratio), 'red');
+            engine.echo('Your Combat Ratio is {0}'.f(combat_ratio), 'red');
         }
 
         if (sect.combat.hasOwnProperty('evasion') && round >= sect.combat.evasion.n_rounds) {
@@ -452,9 +450,9 @@ var fotw_special_combats = {
                     pts = engine.combat_results_table[r][s];
                     ac.endurance.current -= Math.min(pts[0], action_chart.endurance.current);
                     enemy.endurance -= pts[1];
-                    engine.print('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], ac.endurance.current), 'red');
+                    engine.echo('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], ac.endurance.current), 'red');
                     evasion_choice = sect.choices[sect.combat.evasion.choice];
-                    engine.print('({0})'.f(evasion_choice.text));
+                    engine.echo('({0})'.f(evasion_choice.text));
                     engine.setPressKeyMode(function() {
                         engine.doSection(evasion_choice);
                     });
@@ -490,12 +488,12 @@ var fotw_special_combats = {
             if (enemy.hasOwnProperty('double_damage')) { pts[0] *= 2; }
             enemy.endurance -= Math.min(pts[0], enemy.endurance);
             ac.endurance.current -= Math.min(pts[1], ac.endurance.current);
-            engine.print('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], ac.endurance.current), 'red');
+            engine.echo('{0} loses {1} ENDURANCE points ({2} remaining)\nYou lose {3} ENDURANCE points ({4} remaining)'.f(enemy.name, pts[0], enemy.endurance, pts[1], ac.endurance.current), 'red');
             if (enemy.endurance <= 0) {
                 ac.endurance.current = sect.initial_endurance;
-                engine.print('You have won.', 'red');
+                engine.echo('You have won.', 'red');
                 win_choice = sect.choices[2];
-                engine.print('({0})'.f(win_choice.text));
+                engine.echo('({0})'.f(win_choice.text));
                 engine.setConfirmMode({
                     prompt: '[[;#000;#ff0][continue y/n]]',
                     yes: function() {
@@ -509,9 +507,9 @@ var fotw_special_combats = {
                 return false;
             } else if (ac.endurance.current === 0) {
                 ac.endurance.current = sect.initial_endurance;
-                engine.print('You have lost.', 'red');
+                engine.echo('You have lost.', 'red');
                 lost_choice = sect.choices[1];
-                engine.print('({0})'.f(lost_choice.text));
+                engine.echo('({0})'.f(lost_choice.text));
                 engine.setConfirmMode({
                     prompt: '[[;#000;#ff0][continue y/n]]',
                     yes: function() {
@@ -529,7 +527,7 @@ var fotw_special_combats = {
 
         if (round === 0) {
             sect.initial_endurance = ac.endurance.current;
-            print('Your Combat Ratio is {0}'.f(combat_ratio), 'red');
+            engine.echo('Your Combat Ratio is {0}'.f(combat_ratio), 'red');
         }
 
         engine.setPressKeyMode(function() {
