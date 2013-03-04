@@ -255,6 +255,9 @@ var fotw_special_choices = {
 
     // section,choice
 
+    '47,111': function(engine, choice) {
+    },
+
     '75,142': function(engine, choice) {
         engine.action_chart.gold -= 10;
     },
@@ -297,6 +300,16 @@ var fotw_special_choices = {
     }
 
 };
+
+//------------------------------------------------------------------------------------------------------------
+
+var fotw_special_choice_requirements = {
+
+    '47,111': function(engine, choice) {
+        return isInArray('15', engine.visited_sections);
+    }
+
+}
 
 //------------------------------------------------------------------------------------------------------------
 

@@ -590,66 +590,47 @@ var gamebook = function() {
 
         //------------------------------------------------------------------------------------------------------------
         satisfiesChoiceRequirements: function(choice) {
-            var ok = true;
-            each(this, Object.keys(choice.requires || []), function(i, key) {
-                var value = choice.requires[key];
-                if (key === 'has_visited') {
-                    if (!isInArray(value, this.visited_sections)) {
-                        ok = false;
-                        return false;
-                    }
-                } else if (key === 'not') {
-                    each(this, Object.keys(choice.requires.not), function(j, key_not) {
-                        var val_not = choice.requires.not[key_not];
-                        // (*) using regexp matching here to allow alternative requirements (e.g. kai_disciplines = 'Sixth Sense|Mind Over Matter')
-                        if (matchInArray(val_not, this.action_chart[key_not]) || matchInArray(val_not, getNames(this.action_chart[key_not]))) {
-                            ok = false;
-                            return false;
-                        }
-                    });
-                    if (!ok) { return false; }
-                } else {
-                    // keys should correspond to ac sections
-                    switch (typeof value) {
+            var that = this;
+            // array of 0/1's, to be reduced
+            var getReqBools = function(req_obj) {
+                return $.map(req_obj, function(v, k) {
+                    switch (typeof v) {
                     case 'string':
-                        // test inclusion, see (*) above
-                        if (!matchInArray(value, this.action_chart[key]) && !matchInArray(value, getNames(this.action_chart[key]))) {
-                            ok = false;
-                            return false;
-                        }
-                        break;
-                    case 'boolean':
-                        // if array: test empty
-                        if ($.isArray(this.action_chart[key])) {
-                            // if value is true, what will make the condition false
-                            if (value ? this.action_chart[key].length === 0 : this.action_chart[key].length > 0) {
-                                ok = false;
-                                return false;
-                            }
-                            // else: test falsy
-                        } else {
-                            if (value ? !this.action_chart[key] : this.action_chart[key]) {
-                                ok = false;
-                                return false;
-                            }
-                        }
-                        break;
+                        // regexp matching
+                        return (matchInArray(v, that.action_chart[k]) ||
+                                matchInArray(v, getNames(that.action_chart[k]))) ? 1 : 0;
                     case 'number':
                         // interpreted as minimum
-                        if (this.action_chart[key] < value) {
-                            ok = false;
-                            return false;
-                        }
-                        break;
+                        return (that.action_chart[key] < value) ? 1 : 0;
                     default:
-                        print('Error: requirement not defined for type {0}.'.f(typeof value), 'blue');
-                        break;
+                        this.print('Error: requirement not defined for type {0}.'.f(typeof value), 'blue');
+                        return 0;
                     };
+                });
+            };
+            var bools = $.map(choice, function(v, k) {
+                switch (k) {
+                case 'requires':
+                    return getReqBools(v).reduce(function(b1, b2) { return b1 * b2; }) > 0;
+                case 'requires_or':
+                    return getReqBools(v).reduce(function(b1, b2) { return b1 + b2; }) > 0;
+                case 'requires_not':
+                    return getReqBools(v).reduce(function(b1, b2) { return b1 + b2; }) === 0;
+                    console.log(getReqBools(v));
+                default:
+                    // non-requirement-related choice key
+                    return true;
                 }
             });
-            return ok;
+            if (choice.hasOwnProperty('has_special_requirements')) {
+                //console.log(this.special_choice_requirements[[this.curr_section, choice.section]](this, choice));
+                bools.push(this.special_choice_requirements[[this.curr_section, choice.section]](this, choice));
+            }
+            // outer req clauses (requires, requires_or, requires_not) are AND-ed
+            return bools.reduce(function(b1, b2) { return b1 * b2; });
         },
 
+        //------------------------------------------------------------------------------------------------------------
         hasNonAutoItems: function(sect) {
             var found = false;
             $.each(sect.items || [], function(i, item) {
@@ -1029,7 +1010,7 @@ var gamebook = function() {
                 localStorage['action_chart'] = JSON.stringify(engine.action_chart);
                 localStorage['prev_section'] = JSON.stringify(engine.prev_section);
                 localStorage['curr_section'] = JSON.stringify(engine.curr_section);
-                localStorage['visited_sections'] = JSON.stringify(engine.visited_sections); //.slice(0, engine.visited_sections.length - 1));
+                localStorage['visited_sections'] = JSON.stringify(engine.visited_sections);
                 engine.print("The game state was saved (use 'load' to restore it at any moment).", 'blue');
                 return;
             }
@@ -1548,11 +1529,10 @@ var gamebook = function() {
                             //engine.addItem({name: 'Meal', ac_section: 'backpack_items'});
                         }
                         engine.addItem({name: 'Meal', ac_section: 'backpack_items'});
-                        engine.addItem({name: 'Laumspur Meal', ac_section: 'backpack_items'});
+                        //engine.addItem({name: 'Laumspur Meal', ac_section: 'backpack_items'});
                         engine.addItem({name: 'Ticket', ac_section: 'special_items'});
                         engine.addItem({"name": "Magic Spear", "ac_section": "special_items", "is_weaponlike": true,
                                         "weaponskills": ["Spear"]});
-                        //addItem({"name": "Healing Potion", "ac_section": "backpack_items", "endurance": 4, "is_consumable": true});
                         engine.action_chart.special_items.push(engine.data.setup.equipment[3]); // chainmail
                         engine.action_chart.gold = 50;
                         engine.doSection({section:location.search.match(/sect=(\d+)/) ? location.search.match(/sect=(\d+)/)[1] : '1'});

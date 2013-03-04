@@ -188,12 +188,16 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
         for custom_choice in custom['sections'][sect_id].get('choices', []):
             # no key to match here, so we got to match using choice.section (thus the need to search)
             #print custom_choice['section']
+            found = False
             for choice in section['choices']:
                 if choice.get('section') == custom_choice['section'] and 'is_artificial' not in custom_choice:
                     choice.update(custom_choice)
+                    found = True
                     break
             if 'is_artificial' in custom_choice:
                 choices.append(custom_choice)
+            elif not found:
+                print 'Section %s: choice for section %s cannot be found' % (sect_id, custom_choice['section'])
 
     sections[sect_id] = section
 
