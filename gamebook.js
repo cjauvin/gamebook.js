@@ -1541,10 +1541,11 @@ var gamebook = function() {
                         engine.action_chart.combat_skill = 30;
                         engine.action_chart.endurance.initial = 20;
                         engine.action_chart.endurance.current = 18;
-                        engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Hunting'];
+                        engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblas', 'Animal Kinship',
+                                                               'Camouflage', 'Sixth Sens'];
                         engine.action_chart.weaponskill = 'Spear';
-                        //addItem({name: 'Quarterstaff',ac_section:'weapons'});
-                        engine.addItem({name: 'Short Sword', ac_section: 'weapons'});
+                        engine.addItem({name: 'Quarterstaff',ac_section:'weapons'});
+                        //engine.addItem({name: 'Short Sword', ac_section: 'weapons'});
                         //engine.addItem(engine.data.setup.equipment[5]); // healing potion
                         for (var i = 0; i < 8; i++) { // fill with Meals
                             //engine.addItem({name: 'Meal', ac_section: 'backpack_items'});
@@ -1555,7 +1556,7 @@ var gamebook = function() {
                         engine.addItem({"name": "Magic Spear", "ac_section": "special_items", "is_weaponlike": true,
                                         "weaponskills": ["Spear"]});
                         //engine.action_chart.special_items.push(engine.data.setup.equipment[3]); // chainmail
-                        engine.action_chart.gold = 5;
+                        engine.action_chart.gold = 1;
                         engine.doSection({section:location.search.match(/sect=(\d+)/) ? location.search.match(/sect=(\d+)/)[1] : '1'});
                     } else {
                         engine.initSequenceMode(engine.engine_intro, 'engine_intro');
