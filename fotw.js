@@ -333,16 +333,12 @@ var fotw_special_combats = {
             if (enemy.endurance <= 0 && alive) {
                 engine.echo('{0} has died.'.f(enemy.name), 'red');
                 win_choice = sect.choices[sect.combat.win.choice];
+                sect.choices = [win_choice];
                 engine.echo('({0})'.f(win_choice.text));
                 engine.setConfirmMode({
                     prompt: '[[;#000;#ff0][continue y/n]]',
                     yes: function() {
                         engine.doSection(win_choice);
-                    },
-                    no: function() {
-                        // only keep the combat win choice
-                        sect.choices = [win_choice];
-                        engine.term.set_prompt(engine.cmd_prompt);
                     }
                 });
                 return false;
@@ -417,16 +413,12 @@ var fotw_special_combats = {
             if (enemy.endurance <= 0 && alive) {
                 engine.echo('{0} has died.'.f(enemy.name), 'red');
                 win_choice = sect.choices[sect.combat.win.choice];
+                sect.choices = [win_choice];
                 engine.echo('({0})'.f(win_choice.text));
                 engine.setConfirmMode({
                     prompt: '[[;#000;#ff0][continue y/n]]',
                     yes: function() {
                         engine.doSection(win_choice);
-                    },
-                    no: function() {
-                        // only keep the combat win choice
-                        sect.choices = [win_choice];
-                        engine.term.set_prompt(engine.cmd_prompt);
                     }
                 });
                 return false;
@@ -493,15 +485,12 @@ var fotw_special_combats = {
                 ac.endurance.current = sect.initial_endurance;
                 engine.echo('You have won.', 'red');
                 win_choice = sect.choices[2];
+                sect.choices = [win_choice];
                 engine.echo('({0})'.f(win_choice.text));
                 engine.setConfirmMode({
                     prompt: '[[;#000;#ff0][continue y/n]]',
                     yes: function() {
                         engine.doSection(win_choice);
-                    },
-                    no: function() {
-                        sect.choices = [win_choice];
-                        engine.term.set_prompt(engine.cmd_prompt);
                     }
                 });
                 return false;

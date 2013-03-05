@@ -5,8 +5,10 @@ var gamebook = function() {
         // assumes that engine is defined and that it has a working terminal
         if (engine && engine.term) {
             engine.term.echo('\n[[;#0f60ff;#000]There was an exception at line {0}:] [[;#f00;#000]{1}]'.f(line_no, msg));
-            engine.term.echo('\n[[;#0f60ff;#000]Really sorry about that.. (a quick note about it at cjauvin@gmail.com would be\nvery helpful and appreciated, if you feel like it).]\n');
-            return true; // prevent any further catching mechanism
+            engine.term.echo('\n[[;#0f60ff;#000]Really sorry about that.. (a quick note about it at ' +
+                             'cjauvin@gmail.com would be\nvery helpful and appreciated, if you feel like it).]');
+            engine.term.echo('\n');
+            //return false; // prevent any further catching mechanism
         }
         return false;
     };
@@ -608,11 +610,11 @@ var gamebook = function() {
                     switch (typeof v) {
                     case 'string':
                         // regexp matching
-                        return (matchInArray(v, that.action_chart[k]) ||
-                                matchInArray(v, getNames(that.action_chart[k]))) ? 1 : 0;
+                        return Number(matchInArray(v, that.action_chart[k]) ||
+                                      matchInArray(v, getNames(that.action_chart[k])));
                     case 'number':
                         // interpreted as minimum
-                        return (that.action_chart[key] < value) ? 1 : 0;
+                        return Number(that.action_chart[k] >= v);
                     default:
                         that.echo('Error: requirement not defined for type {0}.'.f(typeof value), 'blue');
                         return 0;
@@ -622,21 +624,18 @@ var gamebook = function() {
             var bools = $.map(choice, function(v, k) {
                 switch (k) {
                 case 'requires':
-                    return getReqBools(v).reduce(function(b1, b2) { return b1 * b2; }) > 0;
+                    // coerce bools to ints for reduce (even though adding/multiplying bools works,
+                    // let's follow the Zen of Python here)
+                    return Number(getReqBools(v).reduce(function(b1, b2) { return b1 * b2; }) > 0);
                 case 'requires_or':
-                    return getReqBools(v).reduce(function(b1, b2) { return b1 + b2; }) > 0;
+                    return Number(getReqBools(v).reduce(function(b1, b2) { return b1 + b2; }) > 0);
                 case 'requires_not':
-                    return getReqBools(v).reduce(function(b1, b2) { return b1 + b2; }) === 0;
-                    console.log(getReqBools(v));
+                    return Number(getReqBools(v).reduce(function(b1, b2) { return b1 + b2; }) === 0);
                 default:
                     // non-requirement-related choice key
-                    return true;
+                    return 1;
                 }
             });
-            if (choice.hasOwnProperty('has_special_requirements')) {
-                //console.log(this.special_choice_requirements[[this.curr_section, choice.section]](this, choice));
-                bools.push(this.special_choice_requirements[[this.curr_section, choice.section]](this, choice));
-            }
             // outer req clauses (requires, requires_or, requires_not) are AND-ed
             return bools.reduce(function(b1, b2) { return b1 * b2; });
         },
@@ -912,18 +911,17 @@ var gamebook = function() {
                     sect.combat.enemies.remove(sect.combat.enemies[0]);
                     if (sect.combat.enemies.length === 0) {
                         win_choice = sect.choices[sect.combat.win.choice];
-                        this.echo('({0})'.f(win_choice.text));
-                        this.setConfirmMode({
-                            prompt: '[[;#000;#ff0][continue y/n]]',
-                            yes: function() {
-                                this.doSection(win_choice);
-                            },
-                            no: function() {
-                                // only keep the combat win choice
-                                sect.choices = [win_choice];
-                                this.term.set_prompt(this.cmd_prompt);
-                            }
-                        });
+                        // only keep the combat win choice
+                        sect.choices = [win_choice];
+                        if (!this.hasNonAutoItems(sect)) {
+                            this.echo('({0})'.f(win_choice.text));
+                            this.setConfirmMode({
+                                prompt: '[[;#000;#ff0][continue y/n]]',
+                                yes: function() {
+                                    this.doSection(win_choice);
+                                }
+                            });
+                        }
                     } else {
                         this.setPressKeyMode(function() {
                             this.doSection();
@@ -944,7 +942,7 @@ var gamebook = function() {
                     yes: function() {
                         var r = this.pickRandomNumber(),
                         s, pts;
-                        $.each(combat_results_ranges, function(i, range) {
+                        $.each(this.combat_results_ranges, function(i, range) {
                             if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
                         });
                         pts = this.combat_results_table[r][s];
@@ -1398,7 +1396,7 @@ var gamebook = function() {
             greetings: '',
             history: false,
             tabcompletion: false,
-            displayExceptions: false,
+            displayExceptions: true,
 
             keydown: function(event, term) {
 
