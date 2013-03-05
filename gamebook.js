@@ -1541,7 +1541,7 @@ var gamebook = function() {
                         engine.action_chart.combat_skill = 30;
                         engine.action_chart.endurance.initial = 20;
                         engine.action_chart.endurance.current = 18;
-                        engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Tracking'];
+                        engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship', 'Camouflage', 'Hunting'];
                         engine.action_chart.weaponskill = 'Spear';
                         //addItem({name: 'Quarterstaff',ac_section:'weapons'});
                         engine.addItem({name: 'Short Sword', ac_section: 'weapons'});

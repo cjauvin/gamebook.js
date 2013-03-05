@@ -103,7 +103,7 @@ var fotw_special_sections = {
     },
 
     '150': function(engine, sect) {
-        if (isInArray('Hunting', action_chart.kai_disciplines)) {
+        if (isInArray('Hunting', engine.action_chart.kai_disciplines)) {
             sect.must_eat = false;
             engine.echo('You use your Kai Discipline of Hunting.', 'blue');
         }
