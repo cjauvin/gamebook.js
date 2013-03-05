@@ -192,6 +192,12 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             for choice in section['choices']:
                 if choice.get('section') == custom_choice['section'] and 'is_artificial' not in custom_choice:
                     choice.update(custom_choice)
+                    if '+words' in custom_choice:
+                        choice['words'].extend(custom_choice['+words'])
+                        del choice['+words']
+                    if '-words' in custom_choice:
+                        choice['words'] = [w for w in choice['words'] if w not in custom_choice['-words']]
+                        del choice['-words']
                     found = True
                     break
             if 'is_artificial' in custom_choice:

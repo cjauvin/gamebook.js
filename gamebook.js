@@ -1554,8 +1554,8 @@ var gamebook = function() {
                         engine.addItem({name: 'Ticket', ac_section: 'special_items'});
                         engine.addItem({"name": "Magic Spear", "ac_section": "special_items", "is_weaponlike": true,
                                         "weaponskills": ["Spear"]});
-                        engine.action_chart.special_items.push(engine.data.setup.equipment[3]); // chainmail
-                        engine.action_chart.gold = 50;
+                        //engine.action_chart.special_items.push(engine.data.setup.equipment[3]); // chainmail
+                        engine.action_chart.gold = 5;
                         engine.doSection({section:location.search.match(/sect=(\d+)/) ? location.search.match(/sect=(\d+)/)[1] : '1'});
                     } else {
                         engine.initSequenceMode(engine.engine_intro, 'engine_intro');
