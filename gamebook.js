@@ -1542,7 +1542,7 @@ var gamebook = function() {
                         engine.action_chart.endurance.initial = 20;
                         engine.action_chart.endurance.current = 18;
                         engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblas', 'Animal Kinship',
-                                                               'Camouflage', 'Sixth Sens'];
+                                                               'Camouflage', 'Tracking'];
                         engine.action_chart.weaponskill = 'Spear';
                         engine.addItem({name: 'Quarterstaff',ac_section:'weapons'});
                         //engine.addItem({name: 'Short Sword', ac_section: 'weapons'});
@@ -1552,11 +1552,12 @@ var gamebook = function() {
                         }
                         engine.addItem({name: 'Meal', ac_section: 'backpack_items'});
                         engine.addItem({name: 'Laumspur Meal', ac_section: 'backpack_items'});
-                        engine.addItem({name: 'Ticket', ac_section: 'special_items'});
+                        engine.addItem({name: 'Red Pass', ac_section: 'special_items'});
+                        engine.addItem({name: 'White Pass', ac_section: 'special_items'});
                         engine.addItem({"name": "Magic Spear", "ac_section": "special_items", "is_weaponlike": true,
                                         "weaponskills": ["Spear"]});
                         //engine.action_chart.special_items.push(engine.data.setup.equipment[3]); // chainmail
-                        engine.action_chart.gold = 1;
+                        engine.action_chart.gold = 50;
                         engine.doSection({section:location.search.match(/sect=(\d+)/) ? location.search.match(/sect=(\d+)/)[1] : '1'});
                     } else {
                         engine.initSequenceMode(engine.engine_intro, 'engine_intro');

@@ -295,12 +295,6 @@ var fotw_special_choices = {
         return true;
     },
 
-     '217,199': function(engine, choice) {
-         engine.action_chart.gold -= 1;
-         engine.echo('You pay 1 Gold Crown.', 'blue');
-         return true;
-     },
-
     "338,349": function(engine, choice) {
         removeByName('Magic Spear', engine.action_chart.special_items);
         engine.echo('You have lost your Magic Spear', 'blue');

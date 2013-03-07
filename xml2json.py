@@ -6,6 +6,7 @@ from lxml import etree
 from nltk.corpus import stopwords
 
 width = 80
+content_url = 'http://www.projectaon.org/en/xhtml/lw/02fotw/'
 
 def processPara(para):
     para = re.sub('</?p/?>', '', para)
@@ -21,6 +22,8 @@ def processPara(para):
     para = re.sub('</?onomatopoeia>', '', para)
     para = re.sub('<footref.*?/>', '', para)
     para = re.sub('</?signpost>', '', para)
+    para = re.sub('</?description>', '', para)
+    para = re.sub('</?blockquote>', '', para)
     return textwrap.wrap(para, width)
 
 sections = OrderedDict()
@@ -102,9 +105,21 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
         elif item.tag == 'choice':
             choice_sect_id = re.search('idref="sect(\d+)"', s).group(1)
             choices.append({'section': choice_sect_id, 'text': '\n'.join(processPara(s))})
-        else:
-            if item.tag == 'illustration':
-                illustration_found = True
+        elif item.tag == 'illustration':
+            illustration_found = True
+            desc = ''
+            src = ''
+            for sub in item:
+                if sub.tag == 'meta' and len(sub) > 1 and sub[1].tag == 'description':
+                    desc = '              ' + etree.tostring(sub[1]).rstrip()
+                if sub.get('class') == 'html':
+                    src = sub.get('src')
+                if sub.get('class') == 'text':
+                    for subsub in sub:
+                        desc += ' '.join([line.strip() for line in etree.tostring(subsub).split()])
+            desc = '\n'.join(processPara(desc)).strip()
+            desc = ': %s' % desc if desc else ''
+            sect_paras.append(['%s/%s[Illustration]%s' % (content_url, src, desc)])
     sect_text = '\n\n'.join(['\n'.join(p) for p in sect_paras])
     is_random_pick = False
     if rnt_found and re.search('\d-\d', choices[0]['text']):
