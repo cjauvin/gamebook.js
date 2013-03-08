@@ -1230,7 +1230,8 @@ var gamebook = function() {
                 choice_syn_matches,
                 v_syns;
                 $.each(choice.words || [], function(j, w) {
-                    if (!$.isArray(w)) { w = [w]; } // if w is not compound, make it one
+                    var is_compound = $.isArray(w);
+                    if (!is_compound) { w = [w]; } // if w is not compound, make it one
                     w = $.map(w, function(v) { return stemmer(v.toLowerCase()); });
                     // match structure: maps to each choice word an array of bools: w -> [0, .. 0]
                     // if w is a single word "a": "a" -> [0] (size 1 array)
@@ -1241,14 +1242,18 @@ var gamebook = function() {
                     // but only 1 such match is considered
                     v_syns = []; // if w is compound, each subword is v
                     $.each(w, function(k, v) {
-                        //console.log('v: ', v, 'syns: ', synonyms[v] || []);
+                        //console.log('v: ', v, 'syns: ', engine.synonyms[v] || []);
                         v_syns.push((engine.synonyms[v] || []).concat(v));
                     });
                     $.each(cartesianProduct(v_syns), function(k, w_syns) {
                         w_syns = $.map(w_syns, function(u) { return u; }); // flatten in case a syn is itself a compound
                         choice_syn_matches[w_syns] = zeros(w_syns.length);
                     });
-                    //console.log(choice_syn_matches);
+                    if (is_compound) {
+                        $.each(engine.synonyms[w], function(k, w_syns) {
+                            choice_syn_matches[w_syns] = $.isArray(w_syns) ? zeros(w_syns.length) : [0];
+                        });
+                    }
                     choice_word_matches.push(choice_syn_matches);
                 });
                 $.each(input_tokens, function(j, w) {
