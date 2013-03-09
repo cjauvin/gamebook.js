@@ -24,6 +24,7 @@ def processPara(para):
     para = re.sub('</?signpost>', '', para)
     para = re.sub('</?description>', '', para)
     para = re.sub('</?blockquote>', '', para)
+    para = re.sub('</?bookref.*?>', '', para)
     return textwrap.wrap(para, width)
 
 sections = OrderedDict()
