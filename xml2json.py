@@ -277,6 +277,6 @@ for f in ['prompt', 'intro_sequence', 'setup', 'synonyms']:
     result_od[f] = custom[f]
 result_od['sections'] = section_od
 #json.dump(result_od, open('fotw_generated.json', 'w'), indent=4)
-open('fotw_generated.json', 'w').write('\n'.join([line.rstrip() for line in json.dumps(result_od, indent=4).split('\n')]))
+open('fotw.json', 'w').write('\n'.join([line.rstrip() for line in json.dumps(result_od, indent=4).split('\n')]))
 
-#print 'produced %d sections' % len(result_od['sections'])
+print 'produced %d sections' % len(result_od['sections'])

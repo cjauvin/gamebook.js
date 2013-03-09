@@ -23,14 +23,14 @@ var gamebook = function() {
 
     var help_str =
         "Apart from the textual play commands, you can also use:\n\n" +
-        "help or ?   : show this message\n" +
+        "help or ?   : show this text\n" +
         "ac or !     : show the Action Chart\n" +
         "drop/use <x>: one of your (Weapons, Backpack or Special) Items\n" +
         "eat         : one of your Meals\n" +
-        "continue    : if the current section has only one choice, go to the next\n" +
+        "continue    : go to the next section (if only one choice)\n" +
         "123         : go to section 123 (if possible from current section)\n" +
-        "hint        : show a random word from the choices of the current section\n" +
-        "cheat       : (or choices) reveal the set of choices for the current section\n" +
+        "hint        : show a random word from the current choices\n" +
+        "cheat       : (or choices) reveal the set of choices\n" +
         "auto        : toggle word autocompletion on/off\n" +
         "again       : reprint the current section\n" +
         "save/load   : save and restore the game state at any point\n" +
@@ -58,7 +58,7 @@ var gamebook = function() {
 
         // uses jsonp to avoid XSS issues
         //gamebook_url: '//projectaon.org/staff/christian/gamebook.js/fotw.php?callback=?',
-        gamebook_url: 'fotw_generated.json',
+        gamebook_url: 'fotw.json',
         debug: true,
         data: {},
         synonyms: {},
@@ -152,9 +152,9 @@ var gamebook = function() {
 
         help_str: help_str,
         engine_intro: [logo + "\n\nWelcome to https://github.com/cjauvin/gamebook.js[gamebook.js], an http://en.wikipedia.org/wiki/Interactive_fiction[IF]-style gamebook engine created by\nhttp://christianjauv.in[Christian Jauvin].",
-                        "Instead of navigating an explicit menu of choices, as in the classical\ngamebooks, you are a given a console in which you are free to type\nany command, after each section, using clues from the text. The engine\nthen tries to match your input with one of the predefined choices,\nyielding a gameplay more akin to http://en.wikipedia.org/wiki/Interactive_fiction[interactive fiction].",
-                        "You're about to play an experimental and incomplete version of\nhttp://en.wikipedia.org/wiki/Fire_on_the_water[Fire on the Water], the second gamebook in the http://en.wikipedia.org/wiki/Lone_Wolf_(gamebooks)[Lone Wolf] series,\nwritten by http://en.wikipedia.org/wiki/Joe_Dever[Joe Dever] in 1984. This http://www.projectaon.org/en/Main/FireOnTheWater[electronic version] of the book\nwas created and is being distributed by http://www.projectaon.org/en/Main/Home[Project Aon]. Please note\nthat only the first 53 sections (in http://www.projectaon.org/en/svg/lw/02fotw.svgz[\"story\"], rather than numeric\norder) of the book are currently implemented (but the rest should\nfollow soon).",
-                        ["How to Play", help_str]],
+                       "Instead of navigating an explicit menu of choices, as with a classical\ngamebook, you can type any command you want after each section, using\nclues from the text. The engine then tries to match your input with\none of the predefined choices, yielding a gameplay more akin to\nhttp://en.wikipedia.org/wiki/Interactive_fiction[interactive fiction].",
+                       "You're about to play an experimental version of http://en.wikipedia.org/wiki/Fire_on_the_water[Fire on the Water],\nthe second gamebook in the http://en.wikipedia.org/wiki/Lone_Wolf_(gamebooks)[Lone Wolf] series, written by http://en.wikipedia.org/wiki/Joe_Dever[Joe Dever] in\n1984. This http://www.projectaon.org/en/Main/FireOnTheWater[electronic version] of the book was created and is being\ndistributed by http://www.projectaon.org/en/Main/Home[Project Aon].",
+                       ["How to Play", help_str]],
 
         //   *
         // *   *
@@ -519,8 +519,9 @@ var gamebook = function() {
                     this.echo('Consume it now?', 'blue');
                     this.setConfirmMode({
                         yes: function() {
+                            var before = this.action_chart.endurance.current;
                             this.updateEndurance(item.endurance);
-                            this.echo('You gain {0} ENDURANCE points.'.f(item.endurance), 'blue');
+                            this.echo('You gain {0} ENDURANCE points.'.f(this.action_chart.endurance.current - before), 'blue');
                             this.term.set_prompt(this.cmd_prompt);
                             removeByName(item.name, sect.items || []);
                         }
@@ -976,7 +977,6 @@ var gamebook = function() {
             }
         }
 
-
     }; // end of engine object
 
     //------------------------------------------------------------------------------------------------------------
@@ -1132,8 +1132,9 @@ var gamebook = function() {
                         yes: function() {
                             if (item.hasOwnProperty('is_consumable')) {
                                 if (item.hasOwnProperty('endurance')) {
+                                    var before = this.action_chart.endurance.current;
                                     engine.updateEndurance(item.endurance);
-                                    engine.echo('You gain {0} ENDURANCE points.'.f(item.endurance), 'blue');
+                                    engine.echo('You gain {0} ENDURANCE points.'.f(engine.action_chart.endurance.current - before), 'blue');
                                 }
                                 engine.action_chart[item.ac_section].remove(item);
                             } else {
@@ -1563,7 +1564,7 @@ var gamebook = function() {
                         engine.action_chart.weaponskill = 'Spear';
                         engine.addItem({name: 'Dagger',ac_section:'weapons'});
                         //engine.addItem({name: 'Short Sword',ac_section:'weapons'});
-                        //engine.addItem(engine.data.setup.equipment[5]); // healing potion
+                        engine.addItem(engine.data.setup.equipment[5]); // healing potion
                         for (var i = 0; i < 8; i++) { // fill with Meals
                             //engine.addItem({name: 'Meal', ac_section: 'backpack_items'});
                         }
