@@ -202,6 +202,13 @@ var fotw_special_sections = {
         engine.doSection();
     },
 
+    '289': function(engine, sect) {
+        if (sect.choices.length === 1) {
+            engine.echo("(You don't have the Seal of Hammerdal.)", 'blue');
+        }
+        engine.doSection();
+    },
+
     '308': function(engine, sect) {
         if (engine.action_chart.gold < 3) {
             engine.echo("You don't have enough Gold Crowns to play.", 'blue');
@@ -222,10 +229,10 @@ var fotw_special_sections = {
                                                                                                      rolls[1][1], rolls[2][0], rolls[2][1]);
                 // note that draw is not implemented (it's not really specified in the text anyway)
                 if (rolls[0][2] > rolls[1][2] && rolls[0][2] > rolls[2][2]) {
-                    msg += 'You win 3 Gold Crowns!';
+                    msg += 'You win 3 Gold Crowns';
                     engine.action_chart.gold += 3;
                 } else {
-                    msg += 'You lose 3 Gold Crowns.';
+                    msg += 'You lose 3 Gold Crowns';
                     engine.action_chart.gold -= Math.min(engine.action_chart.gold, 3);
                 }
                 engine.echo(msg, 'blue');
@@ -237,6 +244,13 @@ var fotw_special_sections = {
     '313': function(engine, sect) {
         removeByName('Magic Spear', engine.action_chart.special_items);
         engine.echo('You have lost the Magic Spear.', 'blue');
+        engine.doSection();
+    },
+
+    '324': function(engine, sect) {
+        $.each(sect.choices, function(i, choice) {
+            engine.echo(choice.text);
+        });
         engine.doSection();
     },
 

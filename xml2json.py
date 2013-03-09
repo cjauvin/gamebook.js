@@ -130,14 +130,15 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             else:
                 n = int(re.search('(\d)', choice['text']).group(1))
                 choice['range'] = [n, n]
-    elif len(choices) > 1:
+    else: #if len(choices) > 1:
         for choice in choices:
             words = []
             for w in re.split("[^A-Za-z0-9'-]+", choice['text']): # every nonalpha except "'" and "-"
                 w = w.lower()
                 if len(w) < 3 or w in stopwords or re.match('\d+', w): continue
                 words.append(w)
-            choice['words'] = words
+            if words:
+                choice['words'] = words
     if enemies:
         combat['enemies'] = enemies
         for i, choice in enumerate(choices):
@@ -200,6 +201,11 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             section['trim_choices'] = True
         if 'reduce_choices' in cust_sect:
             section['reduce_choices'] = True
+        cc_sections = []
+        for custom_choice in custom['sections'][sect_id].get('choices', []):
+            if custom_choice['section'] in cc_sections:
+                exit('Error in custom section %s: duplicate choice sections' % sect_id)
+            cc_sections.append(custom_choice['section'])
         for custom_choice in custom['sections'][sect_id].get('choices', []):
             # no key to match here, so we got to match using choice.section (thus the need to search)
             #print custom_choice['section']
@@ -218,7 +224,7 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             if 'is_artificial' in custom_choice:
                 choices.append(custom_choice)
             elif not found:
-                print 'Section %s: choice for section %s cannot be found' % (sect_id, custom_choice['section'])
+                exit('Error in custom section %s: choice for section %s cannot be found' % (sect_id, custom_choice['section']))
 
     sections[sect_id] = section
 
