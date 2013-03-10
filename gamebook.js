@@ -994,9 +994,7 @@ var gamebook = function() {
             if (!command) { return; }
             engine.command = command;
 
-            var choice_match_results = [], // list of [n_choice_matches, choice idx]'s, one for every choice, to be sorted
-            input_tokens = command.split(engine.command_split_regexp), // every nonalpha except "'" and "-"
-            section_input = command.match(/^\d+$/),
+            var section_input = command.match(/^\d+$/),
             valid_section_input_found = false,
             matched_choice_idx, altern_choice_idx,
             sect = $.extend(true, {}, engine.data.sections[engine.curr_section]), // deep clone because we might add artificial choices
@@ -1235,43 +1233,50 @@ var gamebook = function() {
             // text command matching algo //
             ////////////////////////////////
 
-            // for each choice of the current section..
-            $.each(sect.choices, function(i, choice) {
-                // a list of word match structures, one for each choice word
-                var choice_word_matches = [],
-                n_choice_word_matches = 0,
-                choice_syn_matches,
-                v_syns;
-                $.each(choice.words || [], function(j, w) {
-                    var is_compound = $.isArray(w);
-                    if (!is_compound) { w = [w]; } // if w is not compound, make it one
-                    w = $.map(w, function(v) { return stemmer(v.toLowerCase()); });
-                    // match structure: maps to each choice word an array of bools: w -> [0, .. 0]
-                    // if w is a single word "a": "a" -> [0] (size 1 array)
-                    // if w is a compound word ["a", "b"], it's first coerced into "a,b",
-                    // and then mapped to [0, 0] (i.e because there are two words)
-                    choice_syn_matches = {};
-                    // each synonym of w has an entry in the match structure,
-                    // but only 1 such match is considered
-                    v_syns = []; // if w is compound, each subword is v
-                    $.each(w, function(k, v) {
-                        //console.log('v: ', v, 'syns: ', engine.synonyms[v] || []);
-                        v_syns.push((engine.synonyms[v] || []).concat(v));
-                    });
-                    $.each(cartesianProduct(v_syns), function(k, w_syns) {
-                        w_syns = $.map(w_syns, function(u) { return u; }); // flatten in case a syn is itself a compound
-                        choice_syn_matches[w_syns] = zeros(w_syns.length);
-                    });
-                    if (is_compound) {
-                        $.each(engine.synonyms[w] || [], function(k, w_syns) {
-                            choice_syn_matches[w_syns] = $.isArray(w_syns) ? zeros(w_syns.length) : [0];
-                        });
-                    }
-                    choice_word_matches.push(choice_syn_matches);
+            // compute cartesian product of each sub-synonyms of a compound word
+            var getCompoundWordSynonyms = function(c) {
+                var single_syns = []; // singles are stemmed in and out (i.e. syns) at this point
+                $.each(c, function(i, w) {
+                    single_syns.push((engine.synonyms[w] || []).concat(w));
                 });
-                $.each(input_tokens, function(j, w) {
-                    $.each(choice_word_matches, function(k, choice_syn_matches) {
-                        $.each(Object.keys(choice_syn_matches), function(l, s) {
+                return cartesianProduct(single_syns);
+            };
+
+            // list of [n_choice_w_matches, choice]'s, one for every choice, to be sorted
+            var section_match_stats = [];
+
+            // for each choice i of the current section..
+            $.each(sect.choices, function(i, choice) {
+
+                // a list of word match structures, one for each word of the i'th choice
+                var choice_w_matches = [],
+                n_choice_w_matches = 0;
+                // build a match structure for each choice word's synset
+                $.each(choice.words || [], function(j, w) {
+                    // match structure: maps each synonym of w to an array of bools: w -> [0, .. 0]
+                    // if w is a single word "a": "a" -> [0] (size 1 array)
+                    // if w is a compound word ["a", "b"], it's first coerced into "a,b", and then mapped to [0, 0] (i.e because there are two words)
+                    // (even if each synonym of w has an entry in the match structure, only 1 such match is considered)
+                    w = $.isArray(w) ? $.map(w, function(v) { return stemmer(v.toLowerCase()); }) : stemmer(w.toLowerCase());
+                    var w_matches = {};
+                    var w_synset = engine.synonyms[w] || [];
+                    w_synset.push(w);
+                    $.each(w_synset, function(k, s) {
+                        if ($.isArray(s)) { // compound word: consider each combination of sub-synonyms
+                            $.each(getCompoundWordSynonyms(s), function(l, t) {
+                                w_matches[t] = zeros(t.length);
+                            });
+                        } else { // single word
+                            w_matches[s] = [0];
+                        }
+                    });
+                    choice_w_matches.push(w_matches); // one per choice word
+                });
+
+                // for each input token (or word), try to match with one of the match structures of i'th choice
+                $.each(command.split(engine.command_split_regexp), function(j, w) {
+                    $.each(choice_w_matches, function(k, w_matches) {
+                        $.each(Object.keys(w_matches), function(l, s) {
                             // split compound word into single words..
                             $.each(s.split(','), function(m, t) {
                                 // match if edit dist is <= 1 and first letters match (to prevent meal/heal[ing]
@@ -1280,43 +1285,44 @@ var gamebook = function() {
                                 if (levenshteinDist(stemmer(w), t) <= 1 && w[0] == t[0]) {
                                     // and update the match bool at the proper position in
                                     // the match array (0 for single word)
-                                    choice_word_matches[k][s][m] = 1;
+                                    choice_w_matches[k][s][m] = 1;
                                 }
                             });
                         });
                     });
                 });
-                $.each(choice_word_matches, function(j, choice_syn_matches) {
+
+                // compute the score match for i'th choice
+                $.each(choice_w_matches, function(j, w_matches) {
                     // for compound words, make sure that all their matching bools are 1
                     // (by reducing their matching bool arrays)
-                    var syn_matches = $.map(choice_syn_matches, function(match_bools, s) {
+                    var w_matches_reduced = $.map(w_matches, function(bools, s) {
                         // here the left part is reduced to 0 or 1, which we multiply by the size of the array,
                         // to give more weight to compound words, in case there's a tie
                         // (i.e. 'sword' vs 'short sword' items of section 181)
-                        return match_bools.reduce(function(b1, b2) { return b1 * b2; }) * match_bools.length;
+                        return bools.reduce(function(b1, b2) { return b1 * b2; }) * bools.length;
                     });
                     // since only 1 synonym match is considered, take the max
-                    n_choice_word_matches += Array.max(syn_matches);
-                    // if (Array.max(syn_matches) > 0) {
-                    //     console.log(choice_syn_matches, Array.max(syn_matches));
-                    // }
+                    n_choice_w_matches += Array.max(w_matches_reduced);
                 });
-                //choice_match_results.push([n_choice_word_matches, i]);
-                choice_match_results.push([n_choice_word_matches, choice]);
+
+                // commit # of matches for i'th choice
+                section_match_stats.push([n_choice_w_matches, choice]);
+
             });
 
-            // sort by # of matches
-            choice_match_results.sort().reverse();
+            // sort by # of matches to find best choice
+            section_match_stats.sort().reverse();
 
             // no match, and more than one real (i.e. not artificially added) choices
-            if (choice_match_results[0][0] === 0) {
+            if (section_match_stats[0][0] === 0) {
                 engine.echo('Your command does not apply to the current context.', 'blue');
                 return;
             }
 
             // ambiguous match: more than 1 and > 0
-            if (choice_match_results.length >= 2 &&
-                choice_match_results[0][0] === choice_match_results[1][0]) {
+            if (section_match_stats.length >= 2 &&
+                section_match_stats[0][0] === section_match_stats[1][0]) {
                 if (sect.hasOwnProperty('no_ambiguity')) {
                     // simply continue.. (and we'll pick first)
                 } else {
@@ -1326,7 +1332,7 @@ var gamebook = function() {
             }
 
             // at this point we have a match
-            choice = choice_match_results[0][1];
+            choice = section_match_stats[0][1];
 
             if (!choice.hasOwnProperty('is_artificial')) { // regular book choice
                 engine.echo(choice.text);
