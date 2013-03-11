@@ -298,19 +298,32 @@ var gamebook = function() {
 
         //------------------------------------------------------------------------------------------------------------
         printActionChart: function() {
+            var formatList = function(arr, header) {
+                var slen = 0;
+                return $.map(arr, function(s) {
+                    slen += s.length;
+                    if (slen > 45) {
+                        slen = 0;
+                        return header + s;
+                    }
+                    return s;
+                }).join(', ');
+            },
+            ac = this.action_chart;
             this.term.echo('COMBAT SKILL   : {0}'.f(this.calculateCombatSkill().str));
-            this.term.echo('ENDURANCE      : {0} / {1}'.f(this.action_chart.endurance.current,
+            this.term.echo('ENDURANCE      : {0} / {1}'.f(ac.endurance.current,
                                                           this.calculateEndurance().str));
             var kds = [];
-            each(this, this.action_chart.kai_disciplines, function(i, kd) {
-                kds.push(kd === 'Weaponskill' ? 'Weaponskill (' + this.action_chart.weaponskill + ')' : kd);
+            each(this, ac.kai_disciplines, function(i, kd) {
+                kds.push(kd === 'Weaponskill' ? 'Weaponskill (' + ac.weaponskill + ')' : kd);
             });
-            kds[3] = '\n                 ' + kds[3];
-            this.term.echo('Kai Disciplines: ' + kds.join(', '));
-            this.term.echo('Weapons        : ' + getNames(this.action_chart.weapons).join(', '));
-            this.term.echo('Gold Crowns    : ' + this.action_chart.gold);
-            this.term.echo('Backpack Items : ' + (this.action_chart.has_backpack ? getNames(this.action_chart.backpack_items).join(', ') : '[No Backpack]'));
-            this.term.echo('Special Items  : ' + getNames(this.action_chart.special_items).join(', ') + '\n\n');
+            this.term.echo('Kai Disciplines: ' + formatList(kds, '\n                 '));
+            this.term.echo('Weapons        : ' + getNames(ac.weapons).join(', '));
+            this.term.echo('Gold Crowns    : ' + ac.gold);
+            this.term.echo('Backpack Items : ' + (ac.has_backpack ? formatList(getNames(ac.backpack_items),
+                                                                               '\n                 ') : '[No Backpack]'));
+            this.term.echo('Special Items  : ' + formatList(getNames(ac.special_items),
+                                                            '\n                 ') + '\n\n');
         },
 
         //------------------------------------------------------------------------------------------------------------
@@ -710,6 +723,7 @@ var gamebook = function() {
                     if (this.special_choices.hasOwnProperty([this.curr_section, choice.section])) {
                         if (!this.special_choices[[this.curr_section, choice.section]](this, choice)) {
                             this.echo('This is not possible', 'blue');
+                            this.setCmdPrompt();
                             return;
                         }
                     } else {
@@ -750,7 +764,8 @@ var gamebook = function() {
                 sect.n_picked_items = 0;
                 this.printSectionNumber(this.curr_section);
                 this.echo(sect.text);
-                if (isInArray('Healing', this.action_chart.kai_disciplines) && !sect.hasOwnProperty('enemies')) {
+                if (isInArray('Healing', this.action_chart.kai_disciplines) && !sect.hasOwnProperty('enemies') &&
+                   sect.choices.length > 0) {
                     if (this.action_chart.endurance.current < this.calculateEndurance().val) {
                         this.updateEndurance(1);
                         this.echo('Healing..', 'blue');
@@ -1243,7 +1258,7 @@ var gamebook = function() {
             };
 
             // list of [n_choice_w_matches, choice]'s, one for every choice, to be sorted
-            var section_match_stats = [];
+            var section_n_matches_per_choice = [];
 
             // for each choice i of the current section..
             $.each(sect.choices, function(i, choice) {
@@ -1307,22 +1322,22 @@ var gamebook = function() {
                 });
 
                 // commit # of matches for i'th choice
-                section_match_stats.push([n_choice_w_matches, choice]);
+                section_n_matches_per_choice.push([n_choice_w_matches, choice]);
 
             });
 
             // sort by # of matches to find best choice
-            section_match_stats.sort().reverse();
+            section_n_matches_per_choice.sort().reverse();
 
             // no match, and more than one real (i.e. not artificially added) choices
-            if (section_match_stats[0][0] === 0) {
+            if (section_n_matches_per_choice[0][0] === 0) {
                 engine.echo('Your command does not apply to the current context.', 'blue');
                 return;
             }
 
             // ambiguous match: more than 1 and > 0
-            if (section_match_stats.length >= 2 &&
-                section_match_stats[0][0] === section_match_stats[1][0]) {
+            if (section_n_matches_per_choice.length >= 2 &&
+                section_n_matches_per_choice[0][0] === section_n_matches_per_choice[1][0]) {
                 if (sect.hasOwnProperty('no_ambiguity')) {
                     // simply continue.. (and we'll pick first)
                 } else {
@@ -1332,7 +1347,7 @@ var gamebook = function() {
             }
 
             // at this point we have a match
-            choice = section_match_stats[0][1];
+            choice = section_n_matches_per_choice[0][1];
 
             if (!choice.hasOwnProperty('is_artificial')) { // regular book choice
                 engine.echo(choice.text);
@@ -1342,7 +1357,7 @@ var gamebook = function() {
                             engine.doSection(choice);
                         } else {
                             engine.echo('This is not possible.', 'blue');
-                            engine.term.set_prompt(engine.cmd_prompt);
+                            engine.setCmdPrompt();
                         }
                     },
                     no: function() {
@@ -1565,17 +1580,23 @@ var gamebook = function() {
                         engine.action_chart.combat_skill = 30;
                         engine.action_chart.endurance.initial = 20;
                         engine.action_chart.endurance.current = 18;
-                        engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblas', 'Animal Kinship',
-                                                               'Camouflage', 'Tracking'];
+                        engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship',
+                                                               'Camouflage', 'Hunting'];
                         engine.action_chart.weaponskill = 'Spear';
                         engine.addItem({name: 'Dagger',ac_section:'weapons'});
                         //engine.addItem({name: 'Short Sword',ac_section:'weapons'});
                         engine.addItem(engine.data.setup.equipment[5]); // healing potion
-                        for (var i = 0; i < 8; i++) { // fill with Meals
+                        var a = engine.data.setup.sequence[0][1].split(/\W+/);
+                        for (var i = 0; i < 20; i++) { // fill with Meals
                             //engine.addItem({name: 'Meal', ac_section: 'backpack_items'});
+                            // var s = a[Math.floor(Math.random() * a.length)].trim();
+                            // while (s.length <= 5) {
+                            //     s = a[Math.floor(Math.random() * a.length)].trim();
+                            // }
+                            // engine.addItem({name: s, ac_section: 'backpack_items'});
                         }
                         engine.addItem({name: 'Meal', ac_section: 'backpack_items'});
-                        engine.addItem({name: 'Laumspur Meal', ac_section: 'backpack_items'});
+                        //engine.addItem({name: 'Laumspur Meal', ac_section: 'backpack_items'});
                         engine.addItem({name: 'Red Pass', ac_section: 'special_items'});
                         engine.addItem({name: 'White Pass', ac_section: 'special_items'});
                         engine.addItem({"name": "Magic Spear", "ac_section": "special_items", "is_weaponlike": true,

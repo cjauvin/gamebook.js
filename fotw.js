@@ -298,13 +298,12 @@ var fotw_special_choices = {
             engine.setConfirmMode({
                 yes: function() {
                     engine.action_chart.gold -= Math.min(parseInt(m[0]), engine.action_chart.gold);
-                    engine.echo('You have {0} Gold Crowns remaining.'.f(engine.action_chart.gold));
-                    engine.term.set_prompt(engine.cmd_prompt);
+                    engine.echo('You have {0} Gold Crowns remaining.'.f(engine.action_chart.gold), 'blue');
+                    engine.setCmdPrompt();
                 }
             });
-            return;
         } else {
-            engine.echo('This command does not apply to the current context.', 'blue');
+            engine.echo('How much do you want to give?', 'blue');
         }
         return true;
     },
