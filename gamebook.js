@@ -59,7 +59,7 @@ var gamebook = function() {
         // uses jsonp to avoid XSS issues
         //gamebook_url: '//projectaon.org/staff/christian/gamebook.js/fotw.php?callback=?',
         gamebook_url: 'fotw.json',
-        debug: true,
+        debug: false,
         data: {},
         synonyms: {},
         raw_synonyms: {}, // unstemmed (nicer for autocompletion)
@@ -127,6 +127,7 @@ var gamebook = function() {
 
         //------------------------------------------------------------------------------------------------------------
 
+        // [enemy_loss, here_loss]
         combat_results_table: [
             [[6,0], [7,0], [8,0], [9,0], [10,0], [11,0], [12,0], [14,0], [16,0], [18,0], ['k',0], ['k',0], ['k',0]], // 0
             [[0,'k'], [0,'k'], [0,8], [0,6], [1,6], [2,5], [3,5], [4,5], [5,4], [6,4], [7,4], [8,3], [9,3]],         // 1
@@ -420,7 +421,7 @@ var gamebook = function() {
                 str += ' + 2(MB)';
                 val += 2;
             }
-            if (isInArray('Shield', ac.special_items)) {
+            if (isInArray('Shield', getNames(ac.special_items))) {
                 str += ' + 2(Sh)';
                 val += 2;
             }
@@ -987,9 +988,10 @@ var gamebook = function() {
                             if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
                         });
                         pts = this.combat_results_table[r][s];
-                        ac.endurance.current -= Math.min(pts[0], ac.endurance.current);
-                        enemy.endurance -= pts[1];
-                        this.echo('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], ac.endurance.current), 'red');
+                        if (pts[1] === 'k') { pts[1] = ac.endurance.current; }
+                        ac.endurance.current -= Math.min(pts[1], ac.endurance.current);
+                        this.echo('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[1], ac.endurance.current), 'red');
+                        if (!this.isStillAlive()) { return; }
                         evasion_choice = sect.choices[sect.combat.evasion.choice];
                         this.echo('({0})'.f(evasion_choice.text));
                         this.setPressKeyMode(function() {
@@ -1600,9 +1602,9 @@ var gamebook = function() {
                         engine.action_chart.endurance.initial = 20;
                         engine.action_chart.endurance.current = 18;
                         engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship',
-                                                               'Camouflage', 'Huntin'];
+                                                               'Camouflage', 'Hunting'];
                         engine.action_chart.weaponskill = 'Spear';
-                        engine.addItem({name: 'Dagger',ac_section:'weapons'});
+                        engine.addItem({name: 'Dagger', ac_section:'weapons'});
                         //engine.addItem({name: 'Short Sword',ac_section:'weapons'});
                         engine.addItem(engine.data.setup.equipment[5]); // healing potion
                         var a = engine.data.setup.sequence[0][1].split(/\W+/);

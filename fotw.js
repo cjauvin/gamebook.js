@@ -359,7 +359,6 @@ var fotw_special_combats = {
             }
             return alive;
         };
-
         // special aspect
         if (round === 0) {
             combat_ratio = (engine.calculateCombatSkill(enemy).val + 2) - enemy.combat_skill;
@@ -370,39 +369,11 @@ var fotw_special_combats = {
                 engine.echo('Your Combat Ratio is now {0}'.f(combat_ratio), 'red');
             }
         }
-
-        if (sect.combat.hasOwnProperty('evasion') && round >= sect.combat.evasion.n_rounds) {
-            engine.setConfirmMode({
-                prompt: '[[;#000;#ff0][evade y/n]]',
-                yes: function() {
-                    var r = engine.pickRandomNumber(),
-                    s, pts;
-                    $.each(engine.combat_results_ranges, function(i, range) {
-                        if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
-                    });
-                    pts = engine.combat_results_table[r][s];
-                    ac.endurance.current -= Math.min(pts[0], ac.endurance.current);
-                    enemy.endurance -= pts[1];
-                    engine.echo('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], ac.endurance.current), 'red');
-                    evasion_choice = sect.choices[sect.combat.evasion.choice];
-                    engine.echo('({0})'.f(evasion_choice.text));
-                    engine.setPressKeyMode(function() {
-                        engine.doSection(evasion_choice);
-                    });
-                },
-                no: function() {
-                    if (doCombatRound()) {
-                        engine.special_combats[engine.curr_section](engine, sect, enemy, round + 1);
-                    }
-                }
-            });
-        } else {
-            engine.setPressKeyMode(function() {
-                if (doCombatRound()) {
-                    engine.special_combats[engine.curr_section](engine, sect, enemy, round + 1);
-                }
-            });
-        }
+        engine.setPressKeyMode(function() {
+            if (doCombatRound()) {
+                engine.special_combats[engine.curr_section](engine, sect, enemy, round + 1);
+            }
+        });
     },
 
     '60': function(engine, sect, enemy, round) {
@@ -439,43 +410,14 @@ var fotw_special_combats = {
             }
             return alive;
         };
-
         if (round === 0) {
             engine.echo('Your Combat Ratio is {0}'.f(combat_ratio), 'red');
         }
-
-        if (sect.combat.hasOwnProperty('evasion') && round >= sect.combat.evasion.n_rounds) {
-            engine.setConfirmMode({
-                prompt: '[[;#000;#ff0][evade y/n]]',
-                yes: function() {
-                    var r = engine.pickRandomNumber(),
-                    s, pts;
-                    $.each(engine.combat_results_ranges, function(i, range) {
-                        if (combat_ratio >= range[0] && combat_ratio <= range[1]) { s = i; }
-                    });
-                    pts = engine.combat_results_table[r][s];
-                    ac.endurance.current -= Math.min(pts[0], action_chart.endurance.current);
-                    enemy.endurance -= pts[1];
-                    engine.echo('While evading, you lose {0} ENDURANCE points ({1} remaining)'.f(pts[0], ac.endurance.current), 'red');
-                    evasion_choice = sect.choices[sect.combat.evasion.choice];
-                    engine.echo('({0})'.f(evasion_choice.text));
-                    engine.setPressKeyMode(function() {
-                        engine.doSection(evasion_choice);
-                    });
-                },
-                no: function() {
-                    if (doCombatRound()) {
-                        engine.special_combats['60'](engine, sect, enemy, round + 1);
-                    }
-                }
-            });
-        } else {
-            engine.setPressKeyMode(function() {
-                if (doCombatRound()) {
-                    engine.special_combats['60'](engine, sect, enemy, round + 1);
-                }
-            });
-        }
+        engine.setPressKeyMode(function() {
+            if (doCombatRound()) {
+                engine.special_combats['60'](engine, sect, enemy, round + 1);
+            }
+        });
     },
 
     '276': function(engine, sect, enemy, round) {
