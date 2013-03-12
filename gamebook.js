@@ -893,6 +893,25 @@ var gamebook = function() {
                         this.setConfirmMode({
                             yes: function() {
                                 this.doSection(choice);
+                            },
+                            no: function() {
+                                if (sect.hasOwnProperty('alternate_choices')) {
+                                    var real_choices = $.grep(sect.choices, function(c) {
+                                        return !c.hasOwnProperty('is_artificial');
+                                    });
+                                    if (real_choices.length !== 2) {
+                                        this.echo('Error: section {0} has alternate_choices for {1} choices.'.f(this.curr_section, real_choices.length), 'blue');
+                                    }
+                                    var altern_choice = choice === real_choices[0] ? real_choices[1] : real_choices[0];
+                                    this.echo(altern_choice.text);
+                                    this.setConfirmMode({
+                                        yes: function() {
+                                            this.doSection(altern_choice);
+                                        }
+                                    });
+                                } else {
+                                    this.setCmdPrompt();
+                                }
                             }
                         });
                         auto_choice_found = true;
@@ -901,7 +920,7 @@ var gamebook = function() {
                 });
                 // accept user input
                 if (!auto_choice_found) {
-                    this.term.set_prompt(this.cmd_prompt);
+                    this.setCmdPrompt();
                 }
             }
         },
@@ -1297,7 +1316,8 @@ var gamebook = function() {
                                 // match if edit dist is <= 1 and first letters match (to prevent meal/heal[ing]
                                 // to match due to the stemmer) I'm not sure that this is the right way to do it,
                                 // maybe imposing a strict match would actually be better
-                                if (levenshteinDist(stemmer(w), t) <= 1 && w[0] == t[0]) {
+                                //if (levenshteinDist(stemmer(w), t) <= 1 && w[0] == t[0]) {
+                                if (stemmer(w) === t) {
                                     // and update the match bool at the proper position in
                                     // the match array (0 for single word)
                                     choice_w_matches[k][s][m] = 1;
@@ -1323,7 +1343,6 @@ var gamebook = function() {
 
                 // commit # of matches for i'th choice
                 section_n_matches_per_choice.push([n_choice_w_matches, choice]);
-
             });
 
             // sort by # of matches to find best choice
@@ -1376,7 +1395,7 @@ var gamebook = function() {
                                 }
                             });
                         } else {
-                            engine.term.set_prompt(engine.cmd_prompt);
+                            engine.setCmdPrompt();
                         }
                     }
                 });
@@ -1581,7 +1600,7 @@ var gamebook = function() {
                         engine.action_chart.endurance.initial = 20;
                         engine.action_chart.endurance.current = 18;
                         engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship',
-                                                               'Camouflage', 'Hunting'];
+                                                               'Camouflage', 'Huntin'];
                         engine.action_chart.weaponskill = 'Spear';
                         engine.addItem({name: 'Dagger',ac_section:'weapons'});
                         //engine.addItem({name: 'Short Sword',ac_section:'weapons'});

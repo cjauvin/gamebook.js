@@ -247,6 +247,13 @@ var fotw_special_sections = {
         engine.doSection();
     },
 
+    '318': function(engine, sect) {
+        $.each(sect.choices, function(i, choice) {
+            engine.echo(choice.text);
+        });
+        engine.doSection();
+    },
+
     '324': function(engine, sect) {
         $.each(sect.choices, function(i, choice) {
             engine.echo(choice.text);

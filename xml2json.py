@@ -18,6 +18,7 @@ def processPara(para):
     para = para.replace('<ch.emdash/>', "-")
     para = para.replace('<ch.ellips/>', "...")
     para = para.replace('<ch.thinspace/>', "")
+    para = para.replace('<ch.frac12/>', "1/2")
     para = re.sub('</?quote/?>', "\"", para)
     para = re.sub('</?onomatopoeia>', '', para)
     para = re.sub('<footref.*?/>', '', para)
@@ -136,7 +137,7 @@ for sect_elem in root.findall('.//section[@class="numbered"]')[1:]:
             words = []
             for w in re.split("[^A-Za-z0-9'-]+", choice['text']): # every nonalpha except "'" and "-"
                 w = w.lower()
-                if len(w) < 3 or w in stopwords or re.match('\d+', w): continue
+                if (len(w) < 3 and w != 'go') or w in stopwords or re.match('\d+', w): continue
                 words.append(w)
             if words:
                 choice['words'] = words
