@@ -172,6 +172,32 @@ var gamebook = function() {
         },
 
         //------------------------------------------------------------------------------------------------------------
+        hasSavedState: function() {
+            return (localStorage['action_chart'] && localStorage['prev_section'] &&
+                    localStorage['curr_section'] && localStorage['visited_sections']);
+        },
+
+        //------------------------------------------------------------------------------------------------------------
+        loadState: function() {
+            $.getJSON(this.gamebook_url, $.proxy(function(_data) {
+                this.data = _data;
+                this.action_chart = JSON.parse(localStorage['action_chart']);
+                this.prev_section = JSON.parse(localStorage['prev_section']);
+                this.curr_section = JSON.parse(localStorage['curr_section']);
+                this.visited_sections = JSON.parse(localStorage['visited_sections']);
+                this.doSection();
+            }, this));
+        },
+
+        //------------------------------------------------------------------------------------------------------------
+        saveState: function() {
+            localStorage['action_chart'] = JSON.stringify(this.action_chart);
+            localStorage['prev_section'] = JSON.stringify(this.prev_section);
+            localStorage['curr_section'] = JSON.stringify(this.curr_section);
+            localStorage['visited_sections'] = JSON.stringify(this.visited_sections);
+        },
+
+        //------------------------------------------------------------------------------------------------------------
         initSequenceMode: function(seq, which) {
             this.sequence_mode.is_active = true;
             this.sequence_mode.seq = seq;
@@ -184,8 +210,25 @@ var gamebook = function() {
             } else {
                 this.echo(seq_part);
             }
-            this.term.set_prompt(this.sequence_mode.prompt);
             this.sequence_mode.seq_idx = 1;
+            // special case for engine intro sequence: offer to load state
+            if (which === 'engine_intro' && engine.hasSavedState()) {
+                this.sequence_mode.is_active = false;
+                this.echo("Restore previously saved game?");
+                this.setConfirmMode({
+                    yes: function() {
+                        this.loadState();
+                    },
+                    no: function() {
+                        this.sequence_mode.is_active = true;
+                        this.echo(this.sequence_mode.seq[1]);
+                        this.sequence_mode.seq_idx = 2;
+                        this.term.set_prompt(this.sequence_mode.prompt);
+                    }
+                });
+            } else {
+                this.term.set_prompt(this.sequence_mode.prompt);
+            }
         },
 
         //------------------------------------------------------------------------------------------------------------
@@ -1065,26 +1108,15 @@ var gamebook = function() {
             }
 
             if (command === 'save') {
-                localStorage['action_chart'] = JSON.stringify(engine.action_chart);
-                localStorage['prev_section'] = JSON.stringify(engine.prev_section);
-                localStorage['curr_section'] = JSON.stringify(engine.curr_section);
-                localStorage['visited_sections'] = JSON.stringify(engine.visited_sections);
+                engine.saveState();
                 engine.echo("The game state was saved (use 'load' to restore it at any moment).", 'blue');
                 return;
             }
 
             if (command === 'load') {
-                if (localStorage['action_chart'] && localStorage['prev_section'] &&
-                    localStorage['curr_section'] && localStorage['visited_sections']) {
-                    $.getJSON(engine.gamebook_url, function(_data) {
-                        engine.data = _data;
-                        engine.action_chart = JSON.parse(localStorage['action_chart']);
-                        engine.prev_section = JSON.parse(localStorage['prev_section']);
-                        engine.curr_section = JSON.parse(localStorage['curr_section']);
-                        engine.visited_sections = JSON.parse(localStorage['visited_sections']);
-                        engine.echo("The previous game state was restored.", 'blue');
-                        engine.doSection();
-                    });
+                if (engine.hasSavedState()) {
+                    engine.loadState();
+                    engine.echo("The previous game state was restored.", 'blue');
                 } else {
                     engine.echo('There is no saved state to restore.', 'blue');
                 }
