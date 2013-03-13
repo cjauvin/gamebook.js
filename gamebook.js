@@ -25,8 +25,7 @@ var gamebook = function() {
         "Apart from the textual play commands, you can also use:\n\n" +
         "help or ?   : show this text\n" +
         "ac or !     : show the Action Chart\n" +
-        "drop/use <x>: one of your (Weapons, Backpack or Special) Items\n" +
-        "eat         : one of your Meals\n" +
+        "drop/use <x>: any Weapons / Backpack / Special Items (including Meals)\n" +
         "continue    : go to the next section (if only one choice)\n" +
         "123         : go to section 123 (if possible from current section)\n" +
         "hint        : show a random word from the current choices\n" +
@@ -372,20 +371,32 @@ var gamebook = function() {
 
         //------------------------------------------------------------------------------------------------------------
         matchItem: function(input_str, ac_sections) {
-            var closest = {lev: Number.POSITIVE_INFINITY, item: null};
+            var results = [], // list of [lev, n_parts, item]'s, to be sorted
+            lev, item_name_words;
             each(this, ac_sections || ['weapons', 'backpack_items', 'special_items'], function(i, ac_section) {
                 each(this, this.action_chart[ac_section], function(j, item) {
-                    var item_name_words = item.name.split(this.command_split_regexp).concat(item.name);
+                    // try to match full item name
+                    lev = levenshteinDist(input_str, item.name.toLowerCase());
+                    //console.log('full match:', item.name, lev);
+                    results.push([lev, 1, item])
+                    // then break into tokens, to try matching parts
+                    item_name_words = item.name.split(this.command_split_regexp).concat(item.name);
                     $.each(item_name_words, function(k, inw) {
-                        var lev = levenshteinDist(input_str, inw.toLowerCase());
-                        //console.log(iw, lev);
-                        if (lev < 3 && lev < closest.lev) {
-                            closest = {lev: lev, item: item};
-                        }
+                        lev = levenshteinDist(input_str, inw.toLowerCase());
+                        //console.log('partial match:', inw, lev);
+                        results.push([lev, item_name_words.length, item])
                     });
                 });
             });
-            return closest.item;
+            results.sort(function(a, b) {
+                if (a[0] > b[0]) { return 1; }
+                else if (a[0] < b[0]) { return -1; }
+                else { return a[1] >= b[1] ? 1 : -1; }
+            });
+            if (results.length > 0 && results[0][0] < 3) {
+                return results[0][2];
+            }
+            return null;
         },
 
         //------------------------------------------------------------------------------------------------------------
@@ -1189,13 +1200,20 @@ var gamebook = function() {
                 engine.echo('(If you wanted to drop an item, not sure which one.)', 'blue');
             }
 
-            m = command.match(/^use (.+)/);
+            m = command.match(/^use +(.+)/);
             if (m) {
                 item = engine.matchItem(m[1].toLowerCase(), ['backpack_items', 'special_items']);
                 if (item) {
                     engine.echo('Use your {0}?'.f(item.name), 'blue');
                     engine.setConfirmMode({
                         yes: function() {
+                            var used = false;
+                            if (sect.hasOwnProperty('must_eat') && item.name.match(/Meal/)) {
+                                removeByName(item.name, engine.action_chart.backpack_items);
+                                engine.data.sections[engine.curr_section].must_eat = false;
+                                engine.echo('You are no longer hungry.', 'blue');
+                                used = true;
+                            }
                             if (item.hasOwnProperty('is_consumable')) {
                                 if (item.hasOwnProperty('endurance')) {
                                     var before = this.action_chart.endurance.current;
@@ -1203,12 +1221,10 @@ var gamebook = function() {
                                     engine.echo('You gain {0} ENDURANCE points.'.f(engine.action_chart.endurance.current - before), 'blue');
                                 }
                                 engine.action_chart[item.ac_section].remove(item);
-                            } else {
-                                if (item.name === 'Meal') {
-                                    engine.echo("I know I'm a little fussy, but you can only 'eat' Meals (not 'use' them), sorry..", 'blue');
-                                } else {
-                                    engine.echo("I don't know how to use that.", 'blue');
-                                }
+                                used = true;
+                            }
+                            if (!used) {
+                                engine.echo("You cannot use that in the current context.", 'blue');
                             }
                             engine.setCmdPrompt();
                         }
@@ -1216,35 +1232,6 @@ var gamebook = function() {
                     return;
                 }
                 engine.echo('(If you wanted to use an item, not sure which one.)', 'blue');
-            }
-
-            if (command === 'eat') {
-                if (!sect.hasOwnProperty('must_eat')) {
-                    engine.echo('You are not hungry right now', 'blue');
-                } else {
-                    engine.echo('Eat a Meal?', 'blue');
-                    engine.setConfirmMode({
-                        yes: function() {
-                            if (!isInArray('Meal', getNames(engine.action_chart.backpack_items))) {
-                                // special rule for Laumspur Meal
-                                if (!isInArray('Laumspur Meal', getNames(engine.action_chart.backpack_items))) {
-                                    engine.echo('You have no Meal left.', 'blue');
-                                } else {
-                                    removeByName('Laumspur Meal', engine.action_chart.backpack_items);
-                                    engine.data.sections[engine.curr_section].must_eat = false;
-                                    engine.updateEndurance(3);
-                                    engine.echo('You eat a Laumspur Meal (and gain ENDURANCE).', 'blue');
-                                }
-                            } else {
-                                removeByName('Meal', engine.action_chart.backpack_items);
-                                engine.data.sections[engine.curr_section].must_eat = false;
-                                engine.echo('You eat a Meal.', 'blue');
-                            }
-                            engine.setCmdPrompt();
-                        }
-                    });
-                }
-                return;
             }
 
             // try direct section #
@@ -1380,7 +1367,9 @@ var gamebook = function() {
             });
 
             // sort by # of matches to find best choice
-            section_n_matches_per_choice.sort().reverse();
+            section_n_matches_per_choice.sort(function(a, b) {
+                return a[0] >= b[0] ? 1 : -1;
+            }).reverse();
 
             // no match, and more than one real (i.e. not artificially added) choices
             if (section_n_matches_per_choice[0][0] === 0) {
@@ -1634,10 +1623,10 @@ var gamebook = function() {
                         engine.action_chart.endurance.initial = 20;
                         engine.action_chart.endurance.current = 18;
                         engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship',
-                                                               'Camouflage', 'Hunting'];
+                                                               'Camouflage', 'Huntin'];
                         engine.action_chart.weaponskill = 'Spear';
-                        engine.addItem({name: 'Dagger', ac_section:'weapons'});
-                        //engine.addItem({name: 'Short Sword',ac_section:'weapons'});
+                        engine.addItem({name: 'Sword', ac_section:'weapons'});
+                        engine.addItem({name: 'Short Sword',ac_section:'weapons'});
                         engine.addItem(engine.data.setup.equipment[5]); // healing potion
                         var a = engine.data.setup.sequence[0][1].split(/\W+/);
                         for (var i = 0; i < 20; i++) { // fill with Meals
@@ -1648,12 +1637,13 @@ var gamebook = function() {
                             // }
                             // engine.addItem({name: s, ac_section: 'backpack_items'});
                         }
+                        engine.addItem({name: 'Laumspur Meal', ac_section: 'backpack_items',
+                                        is_consumable: true, endurance: 3});
                         engine.addItem({name: 'Meal', ac_section: 'backpack_items'});
-                        //engine.addItem({name: 'Laumspur Meal', ac_section: 'backpack_items'});
-                        engine.addItem({name: 'Red Pass', ac_section: 'special_items'});
-                        engine.addItem({name: 'White Pass', ac_section: 'special_items'});
-                        engine.addItem({"name": "Magic Spear", "ac_section": "special_items", "is_weaponlike": true,
-                                        "weaponskills": ["Spear"]});
+                        //engine.addItem({name: 'Red Pass', ac_section: 'special_items'});
+                        //ngine.addItem({name: 'White Pass', ac_section: 'special_items'});
+                        //engine.addItem({"name": "Magic Spear", "ac_section": "special_items", "is_weaponlike": true,
+                        //                "weaponskills": ["Spear"]});
                         //engine.action_chart.special_items.push(engine.data.setup.equipment[3]); // chainmail
                         engine.action_chart.gold = 50;
                         engine.doSection({section:location.search.match(/sect=(\d+)/) ? location.search.match(/sect=(\d+)/)[1] : '1'});
