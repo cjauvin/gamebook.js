@@ -8,7 +8,7 @@ var gamebook = function() {
             engine.term.echo('\n[[;#0f60ff;#000]Really sorry about that.. (a quick note about it at ' +
                              'cjauvin@gmail.com would be\nvery helpful and appreciated, if you feel like it).]');
             engine.term.echo('\n');
-            //return false; // prevent any further catching mechanism
+            //return true; // prevent any further catching mechanism
         }
         return false;
     };
@@ -55,7 +55,9 @@ var gamebook = function() {
 
     var engine = {
 
-        // uses jsonp to avoid XSS issues
+        // In the case where the engine would *not* be running on a Project Aon server, it should get
+        // its content file from there (to comply with the PA license), and so we should be using jsonp
+        // to avoid XSS issues (and of course we need something to handle it properly server-side)
         //gamebook_url: '//projectaon.org/staff/christian/gamebook.js/fotw.php?callback=?',
         gamebook_url: 'fotw.json',
         debug: false,
@@ -126,7 +128,7 @@ var gamebook = function() {
 
         //------------------------------------------------------------------------------------------------------------
 
-        // [enemy_loss, here_loss]
+        // [enemy_loss, your_loss]
         combat_results_table: [
             [[6,0], [7,0], [8,0], [9,0], [10,0], [11,0], [12,0], [14,0], [16,0], [18,0], ['k',0], ['k',0], ['k',0]], // 0
             [[0,'k'], [0,'k'], [0,8], [0,6], [1,6], [2,5], [3,5], [4,5], [5,4], [6,4], [7,4], [8,3], [9,3]],         // 1
@@ -388,6 +390,11 @@ var gamebook = function() {
                     });
                 });
             });
+            // return match with shortest lev distance, with ties resolved with the second component
+            // (n_parts, which will make full name matches better than partial ones)
+            // e.g. input='meal', items=['meal', 'laumspur meal']: 'meal' is a better match than the
+            // partial '* meal' match, because it has only 1 part (even if they have both have lev=0,
+            // partial match has 2 parts)
             results.sort(function(a, b) {
                 if (a[0] > b[0]) { return 1; }
                 else if (a[0] < b[0]) { return -1; }
