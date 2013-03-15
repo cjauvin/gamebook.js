@@ -55,6 +55,14 @@ var fotw_special_sections = {
         engine.doSection();
     },
 
+    '78': function(engine, sect) {
+        if (isInArray('Chainmail Waistcoat', getNames(engine.action_chart.special_items))) {
+            removeByName('Chainmail Waistcoat', engine.action_chart.special_items);
+            engine.echo('You lose your Chainmail Waistcoat.', 'blue');
+        }
+        engine.doSection();
+    },
+
     '116': function(engine, sect) {
         engine.setPressKeyMode(function() {
             var r = engine.pickRandomNumber();
