@@ -30,6 +30,7 @@ var gamebook = function() {
         "123         : go to section 123 (if possible from current section)\n" +
         "hint        : show a random word from the current choices\n" +
         "cheat       : (or choices) reveal the set of choices\n" +
+        "always      : toggle always-cheat mode\n" +
         "auto        : toggle word autocompletion on/off\n" +
         "again       : reprint the current section\n" +
         "save/load   : save and restore the game state at any point\n" +
@@ -64,7 +65,6 @@ var gamebook = function() {
         data: {},
         synonyms: {},
         raw_synonyms: {}, // unstemmed (nicer for autocompletion)
-        autocompletion_enabled: true,
         term: null,
         command: '',
         command_split_regexp: /[^A-Za-z0-9'-]+/, // every nonalpha except "'" and "-"
@@ -77,6 +77,8 @@ var gamebook = function() {
         prev_section: null,
         curr_section: '1',
         visited_sections: ['1'],
+        autocompletion_enabled: true,
+        always_cheat_enabled: false,
 
         //------------------------------------------------------------------------------------------------------------
         // book-specific routines
@@ -154,9 +156,16 @@ var gamebook = function() {
 
         help_str: help_str,
         engine_intro: [logo + "\n\nWelcome to https://github.com/cjauvin/gamebook.js[gamebook.js], an http://en.wikipedia.org/wiki/Interactive_fiction[IF]-style gamebook engine created by\nhttp://christianjauv.in[Christian Jauvin].",
-                       "Instead of navigating an explicit menu of choices, as with a classical\ngamebook, you can type any command you want after each section, using\nclues from the text. The engine then tries to match your input with\none of the predefined choices, yielding a gameplay more akin to\nhttp://en.wikipedia.org/wiki/Interactive_fiction[interactive fiction].",
-                       "You're about to play an experimental version of http://en.wikipedia.org/wiki/Fire_on_the_water[Fire on the Water],\nthe second gamebook in the http://en.wikipedia.org/wiki/Lone_Wolf_(gamebooks)[Lone Wolf] series, written by http://en.wikipedia.org/wiki/Joe_Dever[Joe Dever] in\n1984. This http://www.projectaon.org/en/Main/FireOnTheWater[electronic version] of the book was created and is being\ndistributed by http://www.projectaon.org/en/Main/Home[Project Aon].",
-                       ["How to Play", help_str]],
+                       ["In a Nutshell", "Instead of navigating an explicit menu of choices, as with a classical\ngamebook, you can type any command you want after each section, using\nclues from the text. The engine then tries to match your input with\none of the predefined choices, yielding a gameplay more akin to\nhttp://en.wikipedia.org/wiki/Interactive_fiction[interactive fiction]."],
+                       ["Lone Wolf: Fire on the Water", "You're about to play an experimental version of http://en.wikipedia.org/wiki/Fire_on_the_water[Fire on the Water],\nthe second gamebook in the http://en.wikipedia.org/wiki/Lone_Wolf_(gamebooks)[Lone Wolf] series, written by http://en.wikipedia.org/wiki/Joe_Dever[Joe Dever] in\n1984. This http://www.projectaon.org/en/Main/FireOnTheWater[electronic version] of the book was created and is being\ndistributed by http://www.projectaon.org/en/Main/Home[Project Aon]."],
+                       ["How to Play", help_str],
+                       ["Difficulty Level (Kind of..)",
+                        "As gamebook.js can sometimes make the game quite hard (because it wasn't\n" +
+                        "obviously meant to be played that way), you have the option of always\n" +
+                        "revealing the set of choices, thus making it easier to play (and also\n" +
+                        "closer to the traditional experience).. Do you want to use always-cheat?\n" +
+                        "(You can turn it off at any moment by typing 'always'.)"],
+                       'Do you want to read the book intro?'],
 
         //   *
         // *   *
@@ -174,8 +183,14 @@ var gamebook = function() {
 
         //------------------------------------------------------------------------------------------------------------
         hasSavedState: function() {
-            return (localStorage['action_chart'] && localStorage['prev_section'] &&
-                    localStorage['curr_section'] && localStorage['visited_sections']);
+            var ok = true;
+            $.each(['action_chart', 'prev_section', 'curr_section', 'visited_sections', 'autocompletion_enabled', 'always_cheat_enabled'], function(i, f) {
+                if (localStorage[f] === undefined) {
+                    ok = false;
+                    return false;
+                }
+            });
+            return ok;
         },
 
         //------------------------------------------------------------------------------------------------------------
@@ -186,6 +201,8 @@ var gamebook = function() {
                 this.prev_section = JSON.parse(localStorage['prev_section']);
                 this.curr_section = JSON.parse(localStorage['curr_section']);
                 this.visited_sections = JSON.parse(localStorage['visited_sections']);
+                this.autocompletion_enabled = JSON.parse(localStorage['autocompletion_enabled']);
+                this.always_cheat_enabled = JSON.parse(localStorage['always_cheat_enabled']);
                 this.doSection();
             }, this));
         },
@@ -196,6 +213,8 @@ var gamebook = function() {
             localStorage['prev_section'] = JSON.stringify(this.prev_section);
             localStorage['curr_section'] = JSON.stringify(this.curr_section);
             localStorage['visited_sections'] = JSON.stringify(this.visited_sections);
+            localStorage['autocompletion_enabled'] = JSON.stringify(this.autocompletion_enabled);
+            localStorage['always_cheat_enabled'] = JSON.stringify(this.always_cheat_enabled);
         },
 
         //------------------------------------------------------------------------------------------------------------
@@ -212,6 +231,7 @@ var gamebook = function() {
                 this.echo(seq_part);
             }
             this.sequence_mode.seq_idx = 1;
+            this.term.set_prompt(this.sequence_mode.prompt);
             // special case for engine intro sequence: offer to load state
             if (which === 'engine_intro' && engine.hasSavedState()) {
                 this.sequence_mode.is_active = false;
@@ -222,13 +242,68 @@ var gamebook = function() {
                     },
                     no: function() {
                         this.sequence_mode.is_active = true;
-                        this.echo(this.sequence_mode.seq[1]);
-                        this.sequence_mode.seq_idx = 2;
                         this.term.set_prompt(this.sequence_mode.prompt);
+                        this.doSequence();
                     }
                 });
+            }
+        },
+
+        //------------------------------------------------------------------------------------------------------------
+        doSequence: function() {
+            if (this.sequence_mode.seq_idx < this.sequence_mode.seq.length) {
+                var seq_part = this.sequence_mode.seq[this.sequence_mode.seq_idx];
+                if ($.isArray(seq_part)) {
+                    this.echo(seq_part[0], 'yellow');
+                    this.echo(seq_part[1]);
+                } else {
+                    this.echo(seq_part);
+                }
+                this.sequence_mode.seq_idx += 1;
+                if (this.sequence_mode.which === 'gamebook_setup') {
+                    this.doSetupSequence();
+                }
+                if (this.sequence_mode.which === 'engine_intro') {
+                    // last two parts of this_intro sequence are config questions
+                    if (this.sequence_mode.seq_idx === (this.sequence_mode.seq.length - 1)) {
+                        this.sequence_mode.is_active = false;
+                        this.setConfirmMode({
+                            yes: function() {
+                                this.always_cheat_enabled = true;
+                                this.doSequence();
+                            },
+                            no: function() {
+                                this.always_cheat_enabled = false;
+                                this.doSequence();
+                            }
+                        });
+                    } else if (this.sequence_mode.seq_idx === this.sequence_mode.seq.length) {
+                        this.sequence_mode.is_active = false;
+                        this.setConfirmMode({
+                            yes: function() {
+                                this.initSequenceMode(this.data.intro_sequence, 'gamebook_intro');
+                            },
+                            no: function() {
+                                this.initSequenceMode(this.data.setup.sequence, 'gamebook_setup');
+                                this.doSetupSequence();
+                            }
+                        });
+                    }
+                } else if (this.sequence_mode.which === 'gamebook_intro') {
+                    // reached end of gamebook intro
+                    if (this.sequence_mode.seq_idx === this.sequence_mode.seq.length) {
+                        this.sequence_mode.is_active = false;
+                        this.setPressKeyMode(function() {
+                            this.initSequenceMode(this.data.setup.sequence, 'gamebook_setup');
+                            this.doSetupSequence();
+                        });
+                    }
+                }
             } else {
-                this.term.set_prompt(this.sequence_mode.prompt);
+                this.sequence_mode.is_active = false;
+                this.term.clear();
+                this.term.consumeSingleKeypress(); // FF keypress/keydown bug
+                this.doSection();
             }
         },
 
@@ -947,42 +1022,51 @@ var gamebook = function() {
                     this.doSetupSequence();
                 });
             } else {
-                var auto_choice_found = false;
-                each(this, sect.choices, function(i, choice) {
-                    if (choice.hasOwnProperty('auto') &&
-                        this.satisfiesChoiceRequirements(choice)) {
-                        this.echo(choice.text);
-                        this.setConfirmMode({
-                            yes: function() {
-                                this.doSection(choice);
-                            },
-                            no: function() {
-                                if (sect.hasOwnProperty('alternate_choices')) {
-                                    var real_choices = $.grep(sect.choices, function(c) {
-                                        return !c.hasOwnProperty('is_artificial');
-                                    });
-                                    if (real_choices.length !== 2) {
-                                        this.echo('Error: section {0} has alternate_choices for {1} choices.'.f(this.curr_section, real_choices.length), 'blue');
-                                    }
-                                    var altern_choice = choice === real_choices[0] ? real_choices[1] : real_choices[0];
-                                    this.echo(altern_choice.text);
-                                    this.setConfirmMode({
-                                        yes: function() {
-                                            this.doSection(altern_choice);
-                                        }
-                                    });
-                                } else {
-                                    this.setCmdPrompt();
-                                }
-                            }
-                        });
-                        auto_choice_found = true;
-                        return false;
-                    }
-                });
-                // accept user input
-                if (!auto_choice_found) {
+                if (this.always_cheat_enabled) {
+                    each(this, sect.choices, function(i, choice) {
+                        if (!choice.hasOwnProperty('is_artificial')) {
+                            this.echo(choice.text);
+                        }
+                    });
                     this.setCmdPrompt();
+                } else {
+                    var auto_choice_found = false;
+                    each(this, sect.choices, function(i, choice) {
+                        if (choice.hasOwnProperty('auto') &&
+                            this.satisfiesChoiceRequirements(choice)) {
+                            this.echo(choice.text);
+                            this.setConfirmMode({
+                                yes: function() {
+                                    this.doSection(choice);
+                                },
+                                no: function() {
+                                    if (sect.hasOwnProperty('alternate_choices') && !this.always_cheat_enabled) {
+                                        var real_choices = $.grep(sect.choices, function(c) {
+                                            return !c.hasOwnProperty('is_artificial');
+                                        });
+                                        if (real_choices.length !== 2) {
+                                            this.echo('Error: section {0} has alternate_choices for {1} choices.'.f(this.curr_section, real_choices.length), 'blue');
+                                        }
+                                        var altern_choice = choice === real_choices[0] ? real_choices[1] : real_choices[0];
+                                        this.echo(altern_choice.text);
+                                        this.setConfirmMode({
+                                            yes: function() {
+                                                this.doSection(altern_choice);
+                                            }
+                                        });
+                                    } else {
+                                        this.setCmdPrompt();
+                                    }
+                                }
+                            });
+                            auto_choice_found = true;
+                            return false;
+                        }
+                    });
+                    // accept user input
+                    if (!auto_choice_found) {
+                        this.setCmdPrompt();
+                    }
                 }
             }
         },
@@ -1112,6 +1196,13 @@ var gamebook = function() {
             if (command === 'again') {
                 engine.printSectionNumber(engine.curr_section);
                 engine.echo(sect.text);
+                if (engine.always_cheat_enabled) {
+                    $.each(sect.choices, function(i, choice) {
+                        if (!choice.hasOwnProperty('is_artificial')) {
+                            engine.echo(choice.text);
+                        }
+                    });
+                }
                 return;
             }
 
@@ -1171,6 +1262,12 @@ var gamebook = function() {
                 engine.autocompletion_enabled = !engine.autocompletion_enabled;
                 engine.setAutocompletionWords(sect);
                 engine.echo('Word autocompletion is now {0}.'.f(engine.autocompletion_enabled ? 'on' : 'off'), 'blue');
+                return;
+            }
+
+            if (command === 'always') {
+                engine.always_cheat_enabled = !engine.always_cheat_enabled;
+                engine.echo('Always-cheat mode is now {0} (the choices will always be revealed).'.f(engine.always_cheat_enabled ? 'on' : 'off'), 'blue');
                 return;
             }
 
@@ -1410,7 +1507,7 @@ var gamebook = function() {
                         }
                     },
                     no: function() {
-                        if (sect.hasOwnProperty('alternate_choices')) {
+                        if (sect.hasOwnProperty('alternate_choices') && !this.always_cheat_enabled) {
                             var real_choices = $.grep(sect.choices, function(c) {
                                 return !c.hasOwnProperty('is_artificial');
                             });
@@ -1489,49 +1586,7 @@ var gamebook = function() {
             keydown: function(event, term) {
 
                 if (engine.sequence_mode.is_active) {
-                    if (engine.sequence_mode.seq_idx < engine.sequence_mode.seq.length) {
-                        var seq_part = engine.sequence_mode.seq[engine.sequence_mode.seq_idx];
-                        if ($.isArray(seq_part)) {
-                            engine.echo(seq_part[0], 'yellow');
-                            engine.echo(seq_part[1]);
-                        } else {
-                            engine.echo(seq_part);
-                        }
-                        engine.sequence_mode.seq_idx += 1;
-                        if (engine.sequence_mode.which === 'gamebook_setup') {
-                            engine.doSetupSequence();
-                        }
-                        if (engine.sequence_mode.which === 'engine_intro') {
-                            // reached end of engine intro
-                            if (engine.sequence_mode.seq_idx === engine.sequence_mode.seq.length) {
-                                engine.echo('Do you want to read the book intro?');
-                                engine.sequence_mode.is_active = false;
-                                engine.setConfirmMode({
-                                    yes: function() {
-                                        engine.initSequenceMode(engine.data.intro_sequence, 'gamebook_intro');
-                                    },
-                                    no: function() {
-                                        engine.initSequenceMode(engine.data.setup.sequence, 'gamebook_setup');
-                                        engine.doSetupSequence();
-                                    }
-                                });
-                            }
-                        } else if (engine.sequence_mode.which === 'gamebook_intro') {
-                            // reached end of gamebook intro
-                            if (engine.sequence_mode.seq_idx === engine.sequence_mode.seq.length) {
-                                engine.sequence_mode.is_active = false;
-                                engine.setPressKeyMode(function() {
-                                    engine.initSequenceMode(engine.data.setup.sequence, 'gamebook_setup');
-                                    engine.doSetupSequence();
-                                });
-                            }
-                        }
-                    } else {
-                        engine.sequence_mode.is_active = false;
-                        engine.term.clear();
-                        engine.term.consumeSingleKeypress(); // FF keypress/keydown bug
-                        engine.doSection();
-                    }
+                    engine.doSequence();
                     return false;
                 }
 
@@ -1630,7 +1685,7 @@ var gamebook = function() {
                         engine.action_chart.endurance.initial = 20;
                         engine.action_chart.endurance.current = 18;
                         engine.action_chart.kai_disciplines = ['Weaponskill', 'Mindblast', 'Animal Kinship',
-                                                               'Camouflage', 'Huntin'];
+                                                               'Camouflage', 'Hunting'];
                         engine.action_chart.weaponskill = 'Spear';
                         engine.addItem({name: 'Sword', ac_section:'weapons'});
                         engine.addItem({name: 'Short Sword',ac_section:'weapons'});
