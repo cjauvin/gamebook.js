@@ -547,7 +547,7 @@ var gamebook = function() {
                         return false;
                     }
                 });
-                if (isInArray(ac.weaponskill, ac.weapons) || special_item_ws) {
+                if (isInArray(ac.weaponskill, getNames(ac.weapons)) || special_item_ws) {
                     str += ' + 2(WS)';
                     val += 2;
                 }
