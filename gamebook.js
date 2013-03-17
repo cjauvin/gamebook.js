@@ -1267,7 +1267,8 @@ var gamebook = function() {
 
             if (command === 'always') {
                 engine.always_cheat_enabled = !engine.always_cheat_enabled;
-                engine.echo('Always-cheat mode is now {0} (the choices will always be revealed).'.f(engine.always_cheat_enabled ? 'on' : 'off'), 'blue');
+                engine.echo('Always-cheat mode is now {0} (the choices will {1} be revealed).'.f(engine.always_cheat_enabled ? 'on' : 'off',
+                                                                                                 engine.always_cheat_enabled ? 'always' : 'not'), 'blue');
                 return;
             }
 
