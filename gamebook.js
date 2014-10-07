@@ -59,8 +59,8 @@ var gamebook = function() {
         // In the case where the engine would *not* be running on a Project Aon server, it should get
         // its content file from there (to comply with the PA license), and so we should be using jsonp
         // to avoid XSS issues (and of course we need something to handle it properly server-side)
-        //gamebook_url: '//projectaon.org/staff/christian/gamebook.js/fotw.php?callback=?',
-        gamebook_url: 'fotw.json',
+        gamebook_url: 'http://projectaon.org/staff/christian/gamebook.js/fotw.php?callback=?',
+        //gamebook_url: 'fotw.json',
         debug: false,
         data: {},
         synonyms: {},
@@ -819,7 +819,8 @@ var gamebook = function() {
                             return false;
                         }
                         // show raw synonyms here (instead of stemmed ones)
-                        each(this, (this.raw_synonyms[word] || []).concat(word), function(k, syn) {
+                        var syns = this.raw_synonyms.hasOwnProperty(word) ? this.raw_synonyms[word] : [];
+                        each(this, syns.concat(word), function(k, syn) {
                             if ($.isArray(syn)) {
                                 each(this, syn, function(l, synw) {
                                     autocomplete_words.push(synw);
