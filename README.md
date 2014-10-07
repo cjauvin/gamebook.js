@@ -30,8 +30,8 @@ such mashups) through [Project Aon][4].
 
 The gamebook data is entirely contained in a [JSON file][5] with a simple
 structure (and is the only part that can't be versioned since it is copyrighted
-material, which has to hosted on Project Aon's web server).  This means that
-the engine operates client-side only, with no need for any server
+material, which has to be hosted on Project Aon's web server).  This means
+that the engine operates client-side only, with no need for any server
 interaction. The main object contains a `sections` object with a key
 corresponding to each section:
 
