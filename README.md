@@ -2,6 +2,8 @@
 
 ## What is it
 
+![gamebook.js](https://raw.githubusercontent.com/cjauvin/gamebook.js/master/docs/gamebook_js.png)
+
 It's an experimental crossbreed between [interactive fiction][if] (IF) and
 [gamebooks][gb]: instead of navigating an explicit set of choices, you are free
 to type any command after each section. The engine then tries to match what you
@@ -156,4 +158,3 @@ modification).
 
 [porterjs]: https://github.com/kristopolous/Porter-Stemmer
 [porter]: http://en.wikipedia.org/wiki/Porter_stemmer
-
